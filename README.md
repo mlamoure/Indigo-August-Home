@@ -1,3 +1,4 @@
+Indigo plugin for August Smart Locks and Doorbell
 
 Using this plugin I have sucessfully delegated the "Auto Lock" functionality of my August to Indigo.  This way, I can tweak the behavior of the auto lock (such as not locking the door every 3 minutes) to instead base this behavior on a combination of other data - such as house presence.
 
