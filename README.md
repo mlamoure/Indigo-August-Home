@@ -1,9 +1,7 @@
-Indigo plugin for August Smart Locks and Doorbell
-
-Using this plugin I have sucessfully delegated the "Auto Lock" functionality of my August to Indigo.  This way, I can tweak the behavior of the auto lock (such as not locking the door every 3 minutes) to instead base this behavior on a combination of other data - such as house presence.
+Indigo (http://www.indigodomo.com) plugin for August Smart Locks and Doorbell
 
 Features:
-	- Obviously supports the Indigo lock device type - Lock, Unlock, Status Requests
+	- Obviously supports the Indigo lock device type - Lock, Unlock, Status Requests.  The intent is to give you the tools to delegate the "Auto Lock" functionality of the August to Indigo.  This way, you can tweak the behavior of the auto lock (such as not locking the door every 3 minutes) to instead base this behavior on a combination of other data - such as house presence.
 	- Supports the use of the August doorbell as a bridge.  Once a lock that is using the doorbell as a bridge is set up, you will also recieve doorbell events (motion, calls) in Indigo and can configure triggers.  You do not need to set up the doorbell in Indigo as a seperate device for this to happen.
 	- Supports "via XXXX" to see how the lock state was changed from outside of Indigo (August App, August App Remote, HomeKit, Manually).  Triggers can exclude remote methods from the trigger event.
 
