@@ -347,7 +347,7 @@ class Plugin(indigo.PluginBase):
 					"User-Agent": USER_AGENT,
 				},
 				data=json.dumps({
-					"phone": login,
+					"email": login,
 					"code": code
 				})
 			)
@@ -502,7 +502,7 @@ class Plugin(indigo.PluginBase):
 
 	def getLockStatus(self, lockID):
 		# Get Lock Status
-		# PUT https://api-production.august.com/remoteoperate/<LOCK_ID>/status
+		# GET https://api-production.august.com/locks/<LOCK_ID>/status
 
 		try:
 			response = requests.get(
