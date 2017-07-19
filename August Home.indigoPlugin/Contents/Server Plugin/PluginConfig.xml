@@ -1,0 +1,95 @@
+<?xml version="1.0"?>
+<PluginConfig>
+	<SupportURL>https://github.com/mlamoure/</SupportURL>
+
+			<Field type="menu" id="ddlLoginMethod" defaultValue="email">
+				<Label>Login Method:</Label>
+				<List>
+					<Option value="email">Email</Option>
+					<Option value="phone">Phone</Option>
+				</List>
+			</Field>
+
+			<Field id="loginDescription"
+			            type="label">
+			        <Label>Your login will either be your email address or phone number.  Phone numbers should use the "+" symbol with country code designation followed by the phone number without spaces or dashes.  e.g. +12223333.  It seems that with August accounts, the email or phone number are interchangable, so either will work fine to log in.</Label>
+			</Field>
+
+	    <Field id="txtLogin"
+	            type="textfield">
+	        <Label>August Login:</Label>
+	    </Field>
+			<Field id="txtPassword"
+	            type="textfield" secure="true">
+	        <Label>August Password:</Label>
+	    </Field>
+
+			<Field id="verifyDescription" type="label">
+			        <Label>Due to the way the August API works, you will need to verify your email/phone in order to register a new "deviceID" with August.  Click the button below to test your credentials.  If the plugin is able to sucessfully log in, it will then verify the new DeviceID with August.  You will recieve a code via email or SMS to your login method to enter below.</Label>
+			</Field>
+
+
+			<Field id="verifyButton"
+				            type="button"
+				            tooltip="Check credentials and verify">
+				        <Label></Label>
+				        <Title>Check credentials and verify</Title>
+				        <CallbackMethod>checkCredentialsAndVerify</CallbackMethod>
+			</Field>
+
+
+			<Field id="verifyStatusDescription" type="label">
+			        <Label>Account Status:</Label>
+			</Field>
+
+			<Field hidden="true" defaultValue="true" type="checkbox" id="chkStatusUnknown"><Label></Label><Description></Description></Field>
+			<Field id="verifyStatusUnknown" type="label" fontColor="red" visibleBindingId="chkStatusUnknown" visibleBindingValue="true">
+			        <Label>Not set</Label>
+			</Field>
+
+			<Field hidden="true" type="checkbox" id="chkNotVerified"><Label></Label><Description></Description></Field>
+			<Field id="verifyStatusNotVerified" type="label" fontColor="red" visibleBindingId="chkNotVerified" visibleBindingValue="true">
+			        <Label>Not Verified (scroll down to enter/send the code)</Label>
+			</Field>
+
+			<Field hidden="true" type="checkbox" id="chkAllGood"><Label></Label><Description></Description></Field>
+			<Field id="verifyAllGood" type="label" fontColor="green" visibleBindingId="chkAllGood" visibleBindingValue="true">
+			        <Label>All Good</Label>
+			</Field>
+
+			<Field hidden="true" type="checkbox" id="checkboxValidationSent" defaultValue="false"><Label></Label><Description></Description></Field>
+
+			<Field id="code"
+	            type="textfield"
+	            readonly="NO"
+	            visibleBindingId="checkboxValidationSent"
+	            visibleBindingValue="true">
+	        	<Label>Verification Code:</Label>
+	    	</Field>
+
+			<Field id="sendVerification"
+				            type="button"
+				            tooltip="Check credentials and verify"
+				            visibleBindingId="checkboxValidationSent"
+				            visibleBindingValue="true">
+				        <Label></Label>
+				        <Title>Verify</Title>
+				        <CallbackMethod>sendVerification</CallbackMethod>
+			</Field>
+
+			<Field type="menu" id="pollingInterval" defaultValue="60">
+				<Label>Popup Menu:</Label>
+				<List>
+					<Option value="10">10 Seconds (still being tested)</Option>
+					<Option value="15">15 Seconds (still being tested)</Option>
+					<Option value="30">30 Seconds</Option>
+					<Option value="45">45 Seconds</Option>
+					<Option value="60">60 Seconds</Option>
+					<Option value="90">90 Seconds</Option>
+				</List>
+			</Field>
+
+			<Field hidden="false" type="checkbox" id="chkDebug"><Label>Debug (will produce a lot of log data)</Label><Description></Description></Field>
+			<Field hidden="false" type="checkbox" id="chkDebug_L2"><Label>Level 2 - Variable Output Debug</Label><Description></Description></Field>
+
+</PluginConfig>
