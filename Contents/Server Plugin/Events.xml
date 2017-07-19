@@ -5,7 +5,7 @@
         <Name>Doorbell Event</Name>
 
   		<ConfigUI>
-		<Field type="menu" id="eventType" defaultValue="motion">
+		<Field type="menu" id="eventType" defaultValue="doorbell_motion_detected">
 			<Label>Popup Menu:</Label>
 			<List>
 				<Option value="doorbell_motion_detected">Motion Detected</Option>

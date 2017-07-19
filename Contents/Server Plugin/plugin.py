@@ -23,12 +23,33 @@ TIMEOUT_GET = 4
 ACTIVITY_MATCHING_THRESHOLD = 2 # The number of seconds as a threshold on the difference between server and local timestamps for event matching
 FORCED_SERVER_REFRESH_RATE = 60 # number of minutes that the plugin will double check the accuracy of the device states
 
+class AugustActivityItem(object):
+
+	def __init__(self, activityID, deviceName, deviceType, action, deviceID, dateTime, callingUser = "Unknown User", via = "via Unknown Method", has_processed = False):
+		self.activityID = activityID
+		self.deviceName = deviceName
+		self.deviceType = deviceType
+		self.action = action
+		self.deviceID = deviceID
+		self.dateTime = dateTime
+		self.callingUser = callingUser
+		self.via = via
+
+		self.has_processed = has_processed
+		self.is_Indigo_Action = False
+
+	def onState(self):
+		return self.action == "lock"
+
+
 ################################################################################
 class Plugin(indigo.PluginBase):
 	########################################
 	def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
 		super(Plugin, self).__init__(pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
 		self.debug = pluginPrefs.get("chkDebug", False)
+		self.debug_L2 = pluginPrefs.get("chkDebug_L2", False)
+
 		self.vPassword = False
 		self.vInstallId = False
 
@@ -46,21 +67,15 @@ class Plugin(indigo.PluginBase):
 			self.authenticate(pluginPrefs.get('txtLogin'), pluginPrefs.get('txtPassword'),
 							  pluginPrefs.get('ddlLoginMethod'))
 
-		if self.debug:
-			self.house_list = []
-			self.lastServerRefresh = datetime.datetime.now()
+		self.house_list = []
+		self.lastServerRefresh = datetime.datetime.now()
+		self.lastForcedServerRefresh = datetime.datetime.now()
 
-			self.house_list = ["7dbd9f1a-db02-4613-94a4-db1bcdbd91cd"]
-			self.lastServerRefresh = datetime.datetime(2009, 1, 6, 15, 8, 24, 78915)
-			self.lastForcedServerRefresh = datetime.datetime.now()
-		else:
-			self.house_list = []
-			self.lastServerRefresh = datetime.datetime.now()
-			self.lastForcedServerRefresh = datetime.datetime.now()
 
 	########################################
 	def startup(self):
 		self.debugLog(u"startup called")
+
 		if self.debug:
 			self.update_all_from_august_activity_log()
 
@@ -69,6 +84,12 @@ class Plugin(indigo.PluginBase):
 
 	def runConcurrentThread(self):
 		self.logger.debug("Starting concurrent tread")
+
+		for houseID, activityItemList in self.house_list:
+			self.load_activity_logs(houseID, True)
+
+		self.sleep(int(self.pollingInterval))			
+		
 		try:
 			# Polling - As far as what is known, there is no subscription method using web standards available from August.
 			while True:
@@ -77,13 +98,15 @@ class Plugin(indigo.PluginBase):
 						self.logger.debug("Refreshing status from August \"/locks\" method, due to previous errors... Polling interval: " + str(self.pollingInterval))
 						self.update_all_from_august(False)
 					else:
-						self.logger.debug("Refreshing status from August Activity Logs...  Last Server Refresh: " + self.lastServerRefresh.strftime('%Y-%m-%d %H:%M:%S.%f %Z') + " (" + str(int((datetime.datetime.now() - self.lastServerRefresh).total_seconds())) + " seconds ago) Polling interval: " + str(self.pollingInterval))
+						self.logger.debug("Refreshing status from August Activity Logs for " + str(len(self.house_list)) + " house(s)...  Last Server Refresh: " + self.lastServerRefresh.strftime('%Y-%m-%d %H:%M:%S.%f %Z') + " (" + str(int((datetime.datetime.now() - self.lastServerRefresh).total_seconds())) + " seconds ago) Polling interval: " + str(self.pollingInterval))
 						self.update_all_from_august_activity_log()
 
-						# every 120 minutes compare states with server
+						# every X minutes compare states with server
 						if self.lastForcedServerRefresh < datetime.datetime.now()-datetime.timedelta(minutes=FORCED_SERVER_REFRESH_RATE):
 							self.logger.debug("Refreshing status from August \"/locks\" method to ensure accuracy (every " + str(FORCED_SERVER_REFRESH_RATE) + " minutes).  Previous run: " + str(self.lastForcedServerRefresh))
 							self.update_all_from_august(True)
+
+							self.trim_local_cache()
 				except:
 					pass
 				self.sleep(int(self.pollingInterval))
@@ -104,7 +127,6 @@ class Plugin(indigo.PluginBase):
 			# Set IsLockSubType property so Indigo knows device accepts lock actions and should use lock UI.
 			props["IsLockSubType"] = True
 			serverState = self.getLockStatus(props["lockID"])
-
 			if serverState is not None:
 				dev.updateStateOnServer('onOffState', value=serverState)
 			else:
@@ -113,8 +135,15 @@ class Plugin(indigo.PluginBase):
 			if not "houseID" in props:
 				props["houseID"] = self.getLockDetails(props["lockID"])["HouseID"]
 
-			if not props["houseID"] in self.house_list:
-				self.house_list.append(props["houseID"])
+			found = False
+			for houseID, activityItemList in self.house_list:
+				if houseID == props["houseID"]:
+					found = True
+					break
+
+			if not found:
+				self.logger.debug("Adding new house: " + props["houseID"] + " to house cache list")
+				self.house_list.append([props["houseID"], []])
 
 			# Cleanup properties used by other device types. These can exist if user switches the device type.
 			if "SupportsColor" in props:
@@ -134,6 +163,24 @@ class Plugin(indigo.PluginBase):
 
 		###### LOCK ######
 		if action.deviceAction == indigo.kDeviceAction.Lock:
+
+			# First check the server state to ensure properly sync'd
+			serverState = self.getLockStatus(dev.pluginProps["lockID"])
+			if serverState is not None:
+				if dev.onState != serverState:
+					if serverState:
+							indigo.server.log(u"Received \"" + dev.name + "\" was locked")
+					else:
+							indigo.server.log(u"Received \"" + dev.name + "\" was unlocked")
+
+					dev.updateStateOnServer('onOffState', value=serverState)
+					self.logger.error("The state of the lock in Indigo was out of sync, " + dev.name + " was already locked")
+					return
+
+			if dev.onState:
+				indigo.server.log(dev.name + " is already locked, no command sent")
+				return
+
 			# Command hardware module (dev) to LOCK here:
 			indigo.server.log(u"sending \"%s\" %s" % (dev.name, "lock"))
 
@@ -150,10 +197,28 @@ class Plugin(indigo.PluginBase):
 				dev.updateStateOnServer("onOffState", True)
 			else:
 				# Else log failure but do NOT update state on Indigo Server.
-				self.logger.error(u"send \"%s\" %s failed" % (dev.name, "lock"), isError=True)
+				self.logger.error(u"send \"%s\" %s failed" % (dev.name, "lock"))
 
 		###### UNLOCK ######
 		elif action.deviceAction == indigo.kDeviceAction.Unlock:
+
+			# First check the server state to ensure properly sync'd
+			serverState = self.getLockStatus(dev.pluginProps["lockID"])
+			if serverState is not None:
+				if dev.onState != serverState:
+					if serverState:
+							indigo.server.log(u"Received \"" + dev.name + "\" was locked")
+					else:
+							indigo.server.log(u"Received \"" + dev.name + "\" was unlocked")
+
+					dev.updateStateOnServer('onOffState', value=serverState)
+					self.logger.error("The state of the lock in Indigo was out of sync, " + dev.name + " was already unlocked")
+					return
+
+			if not dev.onState:
+				indigo.server.log(dev.name + " is already unlocked, no command sent")
+				return
+
 			# Command hardware module (dev) to turn UNLOCK here:
 			indigo.server.log(u"sending \"%s\" %s" % (dev.name, "unlock"))
 			sendSuccess = self.sendCommand(dev.pluginProps["lockID"], "unlock")
@@ -193,7 +258,6 @@ class Plugin(indigo.PluginBase):
 			else:
 				indigo.server.log("Had errors while refreshing status from August, will try again in " + self.pollingInterval + " seconds")
 				self.forceServerRefresh = True
-
 
 
 
@@ -551,52 +615,97 @@ class Plugin(indigo.PluginBase):
 	def availableDoorbells(self, filter="", valuesDict=None, typeId="", targetId=0):
 		pass
 
-	def update_all_from_august_activity_log(self):
-		if self.configStatus:
-			for houseID in self.house_list:
-				applicable_items = 0
-				server_activity_too_close = False
-				matchIndigoStatusChangeEvent = False
+	def trim_local_cache(self):
+		self.logger.debug("trimming the local activity cache")
+		for chk_houseID, activityItemList in self.house_list:
+			if len(activityItemList) > MAXIMUM_ACTIVITY_ITEMS + 1:
+				del activityItemList[MAXIMUM_ACTIVITY_ITEMS:]
+				self.logger.debug("Trimmed the cache to " + str(len(activityItemList)) + " items")
+			
+			if self.debug_L2:
+				for item in activityItemList:
+					self.logger.debug(str(item.activityID) + ", " + str(item.dateTime) + ", " + str(item.has_processed))
 
-				for activityItem in reversed(self.getHouseActivity(houseID)):
-					activityTime = datetime.datetime.fromtimestamp(int(activityItem["dateTime"]) / 1000.0)
-					delta_time = datetime.datetime.now() - activityTime
-					refresh_delta_time = activityTime - self.lastServerRefresh
+	def load_activity_logs(self, houseID, initial_load):
+		self.logger.debug("Processing activity logs for house ID: " + houseID)
 
-					self.logger.debug("Evaluating an activity log that occured " + str(int(delta_time.total_seconds())) + " seconds ago, " + str(refresh_delta_time.total_seconds()) + " seconds since last refresh (" + self.lastServerRefresh.strftime('%Y-%m-%d %H:%M:%S.%f') + "), at: " + activityTime.strftime('%Y-%m-%d %H:%M:%S.%f %Z'))
+		for chk_houseID, activityItemList in self.house_list:
+			if houseID == chk_houseID:
+				######## LOAD NEW ACTIVITY ITEMS
+				newItemCount = 0
+				for serverActivityItem in self.getHouseActivity(houseID):
+					itemAlreadyExists = False
+					for localAcivityItem in activityItemList:
+						if localAcivityItem.activityID == serverActivityItem["dateTime"]:
+							itemAlreadyExists = True
+							break
 
-					# Looking for activity items within the polling interval
-					if refresh_delta_time.total_seconds() > -1:
-						applicable_items += 1
+					if itemAlreadyExists:
+						# Since we are going through the list in chronological order from August, we can stop processing once we find one that already exists.
+						break
+					else:
+						activityID = serverActivityItem["dateTime"]
+						deviceName = serverActivityItem["deviceName"]
+						deviceType = serverActivityItem["deviceType"]
+						action = serverActivityItem["action"]
+						deviceID = serverActivityItem["deviceID"]
+						dateTime = datetime.datetime.fromtimestamp(int(serverActivityItem["dateTime"]) / 1000.0)
 
-						self.logger.debug("Processing relevent activity record:" + str(activityItem))
-						
-						if activityItem["deviceType"] == "lock":
+						callingUser = "Unknown User"
+						via = "via Unknown Method"
 
-							callingUSer = "Unknown User"
-							if activityItem["callingUser"]["FirstName"] == "Manual":
+						if deviceType == "lock":
+							if serverActivityItem["callingUser"]["FirstName"] == "Manual":
 								callingUser = "manually"
 							else:
-								callingUser = "by " + activityItem["callingUser"]["FirstName"] + " " + activityItem["callingUser"]["LastName"]
+								callingUser = "by " + serverActivityItem["callingUser"]["FirstName"] + " " + serverActivityItem["callingUser"]["LastName"]
 
-							via = "via Unknown Method"
-							if 'remote' in activityItem["info"]:
-								if activityItem["info"]["remote"]:
+							if 'remote' in serverActivityItem["info"]:
+								if serverActivityItem["info"]["remote"]:
 									via = "via August App Remotely"
-							elif 'agent' in activityItem["info"]:
-								if activityItem["info"]["agent"] == "homekit":
+							elif 'agent' in serverActivityItem["info"]:
+								if serverActivityItem["info"]["agent"] == "homekit":
 									via = "via HomeKit"
-								elif activityItem["info"]["agent"] == "mercury":
+								elif serverActivityItem["info"]["agent"] == "mercury":
 									via = "via entry code"
 							elif callingUser == "manually":
 								via = ""
-							elif callingUser != "manually" and 'mechanical' in activityItem["info"]:
+							elif callingUser != "manually" and 'mechanical' in serverActivityItem["info"]:
 								via = "via August app"
 
-							for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
 
-								# Check for the right lock
-								if dev.pluginProps["lockID"] == activityItem["deviceID"]:
+						activityItemList.insert(0+newItemCount, AugustActivityItem(activityID, deviceName, deviceType, action, deviceID, dateTime, callingUser, via, initial_load))
+						newItemCount += 1
+				break
+		
+		self.logger.debug("Added " + str(newItemCount) + " new Activity log items to the plugin internal cache")
+		self.logger.debug("Current list of cache timestamp log items for the house (size: " + str(len(activityItemList)) + "): ")
+
+		if self.debug_L2:
+			for item in activityItemList:
+				self.logger.debug(str(item.activityID) + ", " + str(item.dateTime) + ", " + str(item.has_processed))
+
+	def update_all_from_august_activity_log(self):
+		if self.configStatus:
+			had_errors_processing = False
+
+			for houseID, activityItemList in self.house_list:
+
+				self.load_activity_logs(houseID, False)
+
+				####### PROCESS ACTIVITY ITEMS
+				newItemCount = 0
+				for activityItem in reversed(activityItemList):
+					if not activityItem.has_processed:
+						newItemCount += 1
+						delta_time = datetime.datetime.now() - activityItem.dateTime
+						refresh_delta_time = activityItem.dateTime - self.lastServerRefresh
+		
+						self.logger.debug("Evaluating an activity log that occured " + str(int(delta_time.total_seconds())) + " seconds ago, " + str(refresh_delta_time.total_seconds()) + " seconds since last refresh (" + self.lastServerRefresh.strftime('%Y-%m-%d %H:%M:%S.%f') + "), at: " + activityItem.dateTime.strftime('%Y-%m-%d %H:%M:%S.%f %Z'))
+
+						if activityItem.deviceType == "lock":
+							for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
+								if dev.pluginProps["lockID"] == activityItem.deviceID:
 
 									# Check if the activity log item is an action performed by Indigo
 									try:
@@ -605,70 +714,68 @@ class Plugin(indigo.PluginBase):
 										lastSentIndigoUpdateTime = None
 
 									if lastSentIndigoUpdateTime is not None:
-										if via == "via August App Remotely":
-											if activityTime - datetime.timedelta(seconds = ACTIVITY_MATCHING_THRESHOLD) <= lastSentIndigoUpdateTime <= activityTime + datetime.timedelta(seconds = ACTIVITY_MATCHING_THRESHOLD):
+										if activityItem.via == "via August App Remotely":
+											if activityItem.dateTime - datetime.timedelta(seconds = ACTIVITY_MATCHING_THRESHOLD) <= lastSentIndigoUpdateTime <= activityItem.dateTime + datetime.timedelta(seconds = ACTIVITY_MATCHING_THRESHOLD):
 												# SKIP processing this record since it is the activty item that indigo recently performed
-												self.logger.debug("Activty record for the device: " + dev.name + " was a status change performed by Indigo.  Delta: " + str(abs((lastSentIndigoUpdateTime - activityTime).total_seconds())) + ", Activity Time: " + str(activityTime) + ", Indigo Timestamp: " + dev.states["lastSentIndigoUpdateTime"])
-												matchIndigoStatusChangeEvent = True
+												self.logger.debug("MATCHED Indigo Activty record for the device: " + dev.name + ", Delta: " + str(abs((lastSentIndigoUpdateTime - activityItem.dateTime).total_seconds())) + ", Activity Time: " + str(activityItem.dateTime) + ", Indigo Timestamp: " + dev.states["lastSentIndigoUpdateTime"])
+												activityItem.is_Indigo_Action = True
+												activityItem.has_processed = True
 												continue
 
-									# If an Indigo event has been detected and there are subsequent activity items after that event, it's best that we double check with the August /locks method to make sure we have sequenced the activities correctly.
-									if matchIndigoStatusChangeEvent:
-										server_activity_too_close = True
 
-									serverState = activityItem["action"] == "lock"
-
-									if dev.onState != serverState:
-										indigo.server.log(u"Received \"" + dev.name + "\" was " + activityItem["action"] + "ed " + callingUser + " at " + str(activityTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + via)
-										dev.updateStateOnServer('onOffState', value=serverState)
+									if dev.onState != activityItem.onState():
+										indigo.server.log(u"Received \"" + dev.name + "\" was " + activityItem.action + "ed " + activityItem.callingUser + " at " + str(activityItem.dateTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via)
+										dev.updateStateOnServer('onOffState', value=activityItem.onState())
 									else:
-										self.logger.error("Error processing activity records, will update device states from server.")
-										server_activity_too_close = True
+										had_errors_processing = True
+										self.logger.error("Out of sync error while processing activity records, will update device states from server to correct the problem.")
 
 							# PROCESS LOCK TRIGGERS
-							for trigger in indigo.triggers.iter("self"):
+							for trigger in indigo.triggers.iter("self.lockByPerson"):
 								self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
 								if int(delta_time.total_seconds()) <= int(trigger.pluginProps["maxLatency"]):
-									if trigger.pluginProps["lockUnlock"] == activityItem["action"] or trigger.pluginProps["lockUnlock"] == "any":
-											if trigger.id == "lockByPerson":
-												if trigger.pluginProps["txtName"].lower() in callingUser.lower():
-													if via == "via August App Remotely" and trigger["chkIncludeRemote"]:
-														indigo.trigger.execute(trigger)
-													elif via == "via HomeKit" and trigger.pluginProps["chkIncludeHomeKit"]:
-														indigo.trigger.execute(trigger)
-													elif via != "via HomeKit" and via != "via August App Remotely":
-														indigo.trigger.execute(trigger)
+									if trigger.pluginProps["lockUnlock"] == activityItem.action or trigger.pluginProps["lockUnlock"] == "any":
+											if trigger.pluginProps["txtName"].lower() in activityItem.callingUser.lower():
+												if activityItem.via == "via August App Remotely" and trigger["chkIncludeRemote"]:
+													indigo.trigger.execute(trigger)
+												elif activityItem.via == "via HomeKit" and trigger.pluginProps["chkIncludeHomeKit"]:
+													indigo.trigger.execute(trigger)
+												elif activityItem.via != "via HomeKit" and activityItem.via != "via August App Remotely":
+													indigo.trigger.execute(trigger)
 
-											elif callingUser == "Unknown User" and trigger.id == "lockByUnknownPerson":
+							for trigger in indigo.triggers.iter("self.lockByUnknownPerson"):
+								self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
+								if int(delta_time.total_seconds()) <= int(trigger.pluginProps["maxLatency"]):
+									if trigger.pluginProps["lockUnlock"] == activityItem.action or trigger.pluginProps["lockUnlock"] == "any":
+											if activityItem.callingUser == "Unknown User" and trigger.id == "lockByUnknownPerson":
 												indigo.trigger.execute(trigger)
 
-		
-						elif activityItem["deviceType"] == "doorbell":
-							if activityItem["action"] == "doorbell_call_missed":
-								indigo.server.log(u"Received missed doorbell call at " + activityItem["deviceName"] + " at " + str(activityTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
-							elif activityItem["action"] == "doorbell_motion_detected":
-								indigo.server.log(u"Received motion detected event at " + activityItem["deviceName"] + " at " + str(activityTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
+							self.logger.debug("Completed processing lock triggers")
+						
+						elif activityItem.deviceType == "doorbell":	
+							if activityItem.action == "doorbell_call_missed":
+								indigo.server.log(u"Received missed doorbell call at " + activityItem.deviceName + " at " + str(activityItem.dateTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
+							elif activityItem.action == "doorbell_motion_detected":
+								indigo.server.log(u"Received motion detected event at " + activityItem.deviceName + " at " + str(activityItem.dateTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
 
 							# PROCESS DOORBELL TRIGGERS
 							for trigger in indigo.triggers.iter("self.doorbellMotion"):
-								if delta_time.total_seconds() <= int(trigger.pluginProps["maxLatency"]):
+								self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
+								if delta_time.total_seconds() <= 500000:  #int(trigger.pluginProps["maxLatency"])
 									if trigger.pluginProps["eventType"] == "any":
 										indigo.trigger.execute(trigger)
-									elif trigger.pluginProps["eventType"] == activityItem["action"]:
+									elif trigger.pluginProps["eventType"] == activityItem.action:
 										indigo.trigger.execute(trigger)
+						
+							self.logger.debug("Completed processing doorbell triggers")
 
-				# if the count of applicable items is greater than the MAXIMUM_ACTIVITY_ITEMS we will check to make sure we didn't miss anything
-				if applicable_items == MAXIMUM_ACTIVITY_ITEMS:
-					indigo.server.log("More than " + str(MAXIMUM_ACTIVITY_ITEMS) + " activity items since last refresh for HouseID: " + houseID + ", event triggers may have been missed.  Will refresh device states from August servers.")
-				else:
-					self.logger.debug("Processed " + str(applicable_items) + " new activty records from August for HouseID: " + houseID)
-				
+						# Finally, marked the item as processed.
+						activityItem.has_processed = True
+						self.logger.debug("Completed processing activity item")
 
-				if server_activity_too_close:
-					indigo.server.log("Too many activity events within a short period of time, events were processed but verifying the device states from August servers.")
-
-				if applicable_items == MAXIMUM_ACTIVITY_ITEMS or server_activity_too_close:
-					self.update_all_from_august(False)
+			self.logger.debug("Completed processing activity logs")
+			if had_errors_processing:
+				self.update_all_from_august(False)
 
 			self.lastServerRefresh = datetime.datetime.now()
 
@@ -705,3 +812,4 @@ class Plugin(indigo.PluginBase):
 		if not userCancelled:
 			self.pollingInterval = valuesDict["pollingInterval"]
 			self.debug = valuesDict["chkDebug"]
+			self.debug_L2= valuesDict["chkDebug_L2"]
