@@ -5,6 +5,7 @@ Indigo (http://www.indigodomo.com) plugin for August Smart Locks and Doorbell
 * Uses the August cloud API's to control your lock, rather than bluetooth.  The bluetooth control is very hard to set up and control.
 * Supports the use of the August doorbell as a bridge.  Once a lock that is using the doorbell as a bridge is set up, you will also receive doorbell events (motion, missed calls) in Indigo and can configure triggers.  You do not need to set up the doorbell in Indigo as a separate device for this to happen.
 * Supports "via XXXX" to see how the lock state was changed from outside of Indigo (August App, August App Remote, HomeKit, Manually).  Triggers can exclude remote methods from the trigger event.
+* Automatically creates variable folder and variables for tracking the lock and unlock time for each lock.  Usefull in creating Auto Lock feature based on variable values.
 
 # Install Notes #
 * The plugin will guide you thorough it.  You will have to get a verification code from August, sent to your email or phone, for the plugin to work.  August verifies based on a per device basis, not once per account.  The plugin must verify a unique ID associated with your August account in order for the plugin to work.
