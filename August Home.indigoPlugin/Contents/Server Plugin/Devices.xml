@@ -37,6 +37,11 @@
 			        <TriggerLabel>Timestamp of the last indigo update</TriggerLabel>
 			        <ControlPageLabel>Timestamp of the last indigo update</ControlPageLabel>
 			    </State>
+				<State id="lastStateChangeTime">
+			        <ValueType>String</ValueType>
+			        <TriggerLabel>Timestamp of the last state update</TriggerLabel>
+			        <ControlPageLabel>Timestamp of the last state update</ControlPageLabel>
+			    </State>
     	</States>
 	</Device>
 </Devices>

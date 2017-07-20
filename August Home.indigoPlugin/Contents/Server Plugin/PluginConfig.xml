@@ -78,7 +78,7 @@
 			</Field>
 
 			<Field type="menu" id="pollingInterval" defaultValue="60">
-				<Label>Popup Menu:</Label>
+				<Label>Polling Interval:</Label>
 				<List>
 					<Option value="10">10 Seconds (still being tested)</Option>
 					<Option value="15">15 Seconds (still being tested)</Option>
@@ -88,6 +88,10 @@
 					<Option value="90">90 Seconds</Option>
 				</List>
 			</Field>
+
+		    <Field id="indigoVariablesFolderName" type="textfield" defaultValue="august_locks">
+		        <Label>Variable folder name:</Label>
+		    </Field>
 
 			<Field hidden="false" type="checkbox" id="chkDebug"><Label>Debug (will produce a lot of log data)</Label><Description></Description></Field>
 			<Field hidden="false" type="checkbox" id="chkDebug_L2"><Label>Level 2 - Variable Output Debug</Label><Description></Description></Field>
