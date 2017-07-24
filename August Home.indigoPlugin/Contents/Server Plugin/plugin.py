@@ -909,11 +909,12 @@ class Plugin(indigo.PluginBase):
 					deviceTimeUnlocked = datetime.datetime.now() - datetime.datetime.strptime(dev.states["lastStateChangeTime"], "%Y-%m-%d %H:%M:%S")
 					deviceTimeLocked = 0
 
+				self.logger.debug(str(deviceTimeLocked.total_seconds()))
 				varName = dev.name.replace(' ', '_') + "_locked_minutes"
 				if type(deviceTimeLocked) is datetime.timedelta:
 					if varName in indigo.variables:
-						indigo.variable.updateValue(varName, str(int(deviceTimeLocked.total_seconds() // 60 % 60)))
-					dev.updateStateOnServer("locked_minutes", int(deviceTimeLocked.total_seconds() // 60 % 60))
+						indigo.variable.updateValue(varName, str(int(deviceTimeLocked.total_seconds() // 60)))
+					dev.updateStateOnServer("locked_minutes", int(deviceTimeLocked.total_seconds() // 60))
 				else:
 					if varName in indigo.variables:
 						indigo.variable.updateValue(varName, str(deviceTimeLocked))
@@ -922,8 +923,8 @@ class Plugin(indigo.PluginBase):
 				varName = dev.name.replace(' ', '_') + "_unlocked_minutes"
 				if type(deviceTimeUnlocked) is datetime.timedelta:
 					if varName in indigo.variables:
-						indigo.variable.updateValue(varName, str(int(deviceTimeUnlocked.total_seconds() // 60 % 60)))
-					dev.updateStateOnServer("unlocked_minutes", int(deviceTimeUnlocked.total_seconds() // 60 % 60))
+						indigo.variable.updateValue(varName, str(int(deviceTimeUnlocked.total_seconds() // 60)))
+					dev.updateStateOnServer("unlocked_minutes", int(deviceTimeUnlocked.total_seconds() // 60))
 				else:
 					if varName in indigo.variables:
 						indigo.variable.updateValue(varName, str(deviceTimeUnlocked))
