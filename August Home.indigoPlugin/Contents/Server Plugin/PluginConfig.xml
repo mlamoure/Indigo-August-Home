@@ -80,8 +80,8 @@
 			<Field type="menu" id="pollingInterval" defaultValue="60">
 				<Label>Polling Interval:</Label>
 				<List>
-					<Option value="10">10 Seconds (still being tested)</Option>
-					<Option value="15">15 Seconds (still being tested)</Option>
+					<Option value="10">10 Seconds</Option>
+					<Option value="15">15 Seconds</Option>
 					<Option value="30">30 Seconds</Option>
 					<Option value="45">45 Seconds</Option>
 					<Option value="60">60 Seconds</Option>

@@ -42,6 +42,16 @@
 			        <TriggerLabel>Timestamp of the last state update</TriggerLabel>
 			        <ControlPageLabel>Timestamp of the last state update</ControlPageLabel>
 			    </State>
+			   	<State id="locked_minutes">
+			        <ValueType>Number</ValueType>
+			        <TriggerLabel>Number of minutes that the lock has been locked</TriggerLabel>
+			        <ControlPageLabel>Number of minutes that the lock has been locked</ControlPageLabel>
+			    </State>
+				<State id="unlocked_minutes">
+			        <ValueType>Number</ValueType>
+			        <TriggerLabel>Number of minutes that the lock has been unlocked</TriggerLabel>
+			        <ControlPageLabel>Number of minutes that the lock has been unlocked</ControlPageLabel>
+			    </State>
     	</States>
 	</Device>
 </Devices>

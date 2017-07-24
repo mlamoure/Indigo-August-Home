@@ -21,7 +21,7 @@ MAXIMUM_ACTIVITY_ITEMS = 10 # Max number of activity items to request per house 
 TIMEOUT_PUT = 10
 TIMEOUT_GET = 4
 ACTIVITY_MATCHING_THRESHOLD = 2 # The number of seconds as a threshold on the difference between server and local timestamps for event matching
-FORCED_SERVER_REFRESH_RATE = 60 # number of minutes that the plugin will double check the accuracy of the device states
+FORCED_SERVER_REFRESH_RATE = 3 # number of minutes that the plugin will double check the accuracy of the device states
 
 class AugustActivityItem(object):
 
@@ -39,7 +39,7 @@ class AugustActivityItem(object):
 		self.is_Indigo_Action = False
 
 	def onState(self):
-		return self.action == "lock"
+		return self.action == "lock" or self.action == "onetouchlock"
 
 
 ################################################################################
@@ -75,18 +75,20 @@ class Plugin(indigo.PluginBase):
 		self.indigoVariablesFolderID = None
 
 		if self.indigoVariablesFolderName is not None:
-			self.indigoVariablesFolderID=indigo.variables.folders[self.indigoVariablesFolderName].id
+			if self.indigoVariablesFolderName in indigo.variables.folders:
+				self.indigoVariablesFolderID=indigo.variables.folders[self.indigoVariablesFolderName].id
 
 
 	########################################
 	def startup(self):
 		self.debugLog(u"startup called")
 
-		if self.debug:
-			self.update_all_from_august_activity_log()
+		if self.configStatus:
+			if self.debug:
+				self.update_all_from_august_activity_log()
 
-		self.createVariableFolder(self.indigoVariablesFolderName)
-		self.updateVariables()
+			self.createVariableFolder(self.indigoVariablesFolderName)
+			self.updateVariables()
 
 	def shutdown(self):
 		self.debugLog(u"shutdown called")
@@ -126,7 +128,8 @@ class Plugin(indigo.PluginBase):
 			self.logger.debug("Received StopThread")
 
 	def deviceStopComm(self, dev):
-		self.resetHouseList()
+		if "houseID" in dev.pluginProps:
+			self.resetHouseList()
 
 	def resetHouseList(self):
 		self.house_list = []
@@ -152,24 +155,32 @@ class Plugin(indigo.PluginBase):
 		# self.debugLog(u"deviceStartComm: %s" % (dev.name,))
 
 		props = dev.pluginProps
-		if dev.deviceTypeId == 'augLock':
+		if not props["configured"]:
+			if not "lockID" in props:
+				self.logger.error("August device '{}' configured with unknown Lock ID. Reconfigure the device to make it active.".format(dev.name))
+				return
+
 			# Set IsLockSubType property so Indigo knows device accepts lock actions and should use lock UI.
 			props["IsLockSubType"] = True
-			serverState = self.getLockStatus(props["lockID"])
-			if serverState is not None:
-				dev.updateStateOnServer('onOffState', value=serverState)
-			else:
-				self.forceServerRefresh = True
-
-			if not "houseID" in props:
-				props["houseID"] = self.getLockDetails(props["lockID"])["HouseID"]
+			props["houseID"] = self.getLockDetails(props["lockID"])["HouseID"]
 
 			# Cleanup properties used by other device types. These can exist if user switches the device type.
 			if "SupportsColor" in props:
 				del props["SupportsColor"]
 
-		dev.replacePluginPropsOnServer(props)
-		self.resetHouseList()
+			props["configured"] = True
+
+			dev.replacePluginPropsOnServer(props)
+		else:
+			serverState = self.getLockStatus(props["lockID"])
+
+			if serverState is not None:
+				dev.updateStateOnServer('onOffState', value=serverState)
+			else:
+				self.forceServerRefresh = True
+
+			self.resetHouseList()
+
 
 	########################################
 	def validateDeviceConfigUi(self, valuesDict, typeId, devId):
@@ -181,86 +192,50 @@ class Plugin(indigo.PluginBase):
 	def actionControlDevice(self, action, dev):
 		props = dev.pluginProps
 
-		###### LOCK ######
+		actionstr = "unknown"
 		if action.deviceAction == indigo.kDeviceAction.Lock:
+			actionstr = "lock"
+		else:
+			actionstr = "unlock"
 
-			# First check the server state to ensure properly sync'd
-			serverState = self.getLockStatus(dev.pluginProps["lockID"])
-			if serverState is not None:
-				if dev.onState != serverState:
-					if serverState:
-							indigo.server.log(u"Received \"" + dev.name + "\" was locked")
-					else:
-							indigo.server.log(u"Received \"" + dev.name + "\" was unlocked")
+		# First check the server state to ensure properly sync'd
+		serverState = self.getLockStatus(dev.pluginProps["lockID"])
+		if serverState is not None:
+			if dev.onState != serverState:
+				if serverState:
+						indigo.server.log(u"Received \"" + dev.name + "\" was locked")
+				else:
+						indigo.server.log(u"Received \"" + dev.name + "\" was unlocked")
 
-					dev.updateStateOnServer('onOffState', value=serverState)
-					self.logger.error("The state of the lock in Indigo was out of sync, " + dev.name + " was already locked")
-					return
-
-			if dev.onState:
-				indigo.server.log(dev.name + " is already locked, no command sent")
+				dev.updateStateOnServer('onOffState', value=serverState)
+				self.logger.error("The state of the lock in Indigo was out of sync, " + dev.name + " was already " + actionstr + "ed")
 				return
 
-			# Command hardware module (dev) to LOCK here:
-			indigo.server.log(u"sending \"%s\" %s" % (dev.name, "lock"))
+		if (dev.onState and actionstr == "lock") or not dev.onState and actionstr == "unlock":
+			indigo.server.log(dev.name + " is already " + actionstr + "ed, no command sent")
+			return
 
-			sendSuccess = self.sendCommand(dev.pluginProps["lockID"], "lock")
+		# Command hardware module (dev) to LOCK here:
+		indigo.server.log(u"sending \"%s\" %s" % (dev.name, actionstr))
 
-			if sendSuccess:
-				# If success then log that the command was successfully sent.
-				indigo.server.log(u"sent \"%s\" %s" % (dev.name, "lock"))
+		sendSuccess = self.sendCommand(dev.pluginProps["lockID"], actionstr)
 
-				# Update a timestamp of the last time the device was updated by Indigo
-				dev.updateStateOnServer("lastSentIndigoUpdateTime", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+		if sendSuccess:
+			# If success then log that the command was successfully sent.
+			indigo.server.log(u"sent \"%s\" %s" % (dev.name, actionstr))
 
-				# Update a timestamp of the last time the device was updated
-				dev.updateStateOnServer("lastStateChangeTime", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+			# Update a timestamp of the last time the device was updated by Indigo
+			dev.updateStateOnServer("lastSentIndigoUpdateTime", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-				# And then tell the Indigo Server to update the state.
-				dev.updateStateOnServer("onOffState", True)
-			else:
-				# Else log failure but do NOT update state on Indigo Server.
-				self.logger.error(u"send \"%s\" %s failed" % (dev.name, "lock"))
+			# And then tell the Indigo Server to update the state.
+			dev.updateStateOnServer("onOffState", actionstr=="lock")
 
-		###### UNLOCK ######
-		elif action.deviceAction == indigo.kDeviceAction.Unlock:
+			# Update a timestamp of the last time the device was updated
+			dev.updateStateOnServer("lastStateChangeTime", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-			# First check the server state to ensure properly sync'd
-			serverState = self.getLockStatus(dev.pluginProps["lockID"])
-			if serverState is not None:
-				if dev.onState != serverState:
-					if serverState:
-							indigo.server.log(u"Received \"" + dev.name + "\" was locked")
-					else:
-							indigo.server.log(u"Received \"" + dev.name + "\" was unlocked")
-
-					dev.updateStateOnServer('onOffState', value=serverState)
-					self.logger.error("The state of the lock in Indigo was out of sync, " + dev.name + " was already unlocked")
-					return
-
-			if not dev.onState:
-				indigo.server.log(dev.name + " is already unlocked, no command sent")
-				return
-
-			# Command hardware module (dev) to turn UNLOCK here:
-			indigo.server.log(u"sending \"%s\" %s" % (dev.name, "unlock"))
-			sendSuccess = self.sendCommand(dev.pluginProps["lockID"], "unlock")
-
-			if sendSuccess:
-				# If success then log that the command was successfully sent.
-				indigo.server.log(u"sent \"%s\" %s" % (dev.name, "unlock"))
-
-				# Update a timestamp of the last time the device was updated by Indigo
-				dev.updateStateOnServer("lastSentIndigoUpdateTime", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
-				# Update a timestamp of the last time the device was updated
-				dev.updateStateOnServer("lastStateChangeTime", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
-				# And then tell the Indigo Server to update the state:
-				dev.updateStateOnServer("onOffState", False)
-			else:
-				# Else log failure but do NOT update state on Indigo Server.
-				self.logger.error("send \"%s\" %s failed" % (dev.name, "unlock"))
+		else:
+			# Else log failure but do NOT update state on Indigo Server.
+			self.logger.error(u"send \"%s\" %s failed" % (dev.name, actionstr))
 
 		self.updateVariables()
 
@@ -283,11 +258,12 @@ class Plugin(indigo.PluginBase):
 							indigo.server.log(u"Received \"" + dev.name + "\" was unlocked")
 
 					dev.updateStateOnServer('onOffState', value=serverState)
+
+					# Update a timestamp of the last time the device was updated
+					dev.updateStateOnServer("lastStateChangeTime", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 			else:
 				indigo.server.log("Had errors while refreshing status from August, will try again in " + str(self.pollingInterval) + " seconds")
 				self.forceServerRefresh = True
-
-
 
 
 	########################################
@@ -635,7 +611,8 @@ class Plugin(indigo.PluginBase):
 		locks_list = []
 
 		dev = indigo.devices.get(targetId, None)
-		if dev and self.configStatus:
+
+		if self.configStatus:
 			for key, value in locks.items():
 				found = False
 				for existing_dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
@@ -644,7 +621,23 @@ class Plugin(indigo.PluginBase):
 	
 				if not found:	
 					locks_list.append((key, value["LockName"]))
+		
+		if dev and dev.configured:
+			locks_list.append((dev.pluginProps["lockID"], dev.name))
+
 		return locks_list
+
+	########################################
+	# Valication callbacks
+	########################################
+	def validateDeviceConfigUi(self, valuesDict, typeId, devId):
+		if devId:
+			dev = indigo.devices[devId]
+			if dev.pluginProps.get("lockID", None) != valuesDict["lockID"]:
+				valuesDict["configured"] = False
+		else:
+			valuesDict["configured"] = False
+		return (True, valuesDict)
 
 	def trim_local_cache(self):
 		self.logger.debug("trimming the local activity cache")
@@ -688,6 +681,8 @@ class Plugin(indigo.PluginBase):
 						if deviceType == "lock":
 							if serverActivityItem["callingUser"]["FirstName"] == "Manual":
 								callingUser = "manually"
+							elif action == "onetouchlock":
+								callingUSer = "One-Touch Lock"
 							else:
 								callingUser = "by " + serverActivityItem["callingUser"]["FirstName"] + " " + serverActivityItem["callingUser"]["LastName"]
 
@@ -698,7 +693,10 @@ class Plugin(indigo.PluginBase):
 								if serverActivityItem["info"]["agent"] == "homekit":
 									via = "via HomeKit"
 								elif serverActivityItem["info"]["agent"] == "mercury":
-									via = "via entry code"
+									if action == "onetouchlock":
+										via = ""
+									else:
+										via = "via entry code"
 							elif callingUser == "manually":
 								via = ""
 							elif callingUser != "manually" and 'mechanical' in serverActivityItem["info"]:
@@ -738,6 +736,18 @@ class Plugin(indigo.PluginBase):
 							for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
 								if dev.pluginProps["lockID"] == activityItem.deviceID:
 
+									# Process Invalid Code
+									if activityItem.action == "invalidcode":
+										indigo.server.log("Invalid entry code used on " + dev.name + " at " + str(activityItem.dateTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
+										activityItem.has_processed = True
+
+										# Process any Invalid code triggers
+										for trigger in indigo.triggers.iter("self.invalidCode"):
+											self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
+											if int(delta_time.total_seconds()) <= int(trigger.pluginProps["maxLatency"]):
+												indigo.trigger.execute(trigger)										
+										continue
+
 									# Check if the activity log item is an action performed by Indigo
 									try:
 										lastSentIndigoUpdateTime = datetime.datetime.strptime(dev.states["lastSentIndigoUpdateTime"], "%Y-%m-%d %H:%M:%S")
@@ -754,15 +764,18 @@ class Plugin(indigo.PluginBase):
 												continue
 
 									if dev.onState != activityItem.onState():
-										indigo.server.log(u"Received \"" + dev.name + "\" was " + activityItem.action + "ed " + activityItem.callingUser + " at " + str(activityItem.dateTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via)
+										if activityItem.action == "onetouchlock":
+											indigo.server.log(u"Received \"" + dev.name + "\" was One-Touch Locked at " + str(activityItem.dateTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via)
+										else:
+											indigo.server.log(u"Received \"" + dev.name + "\" was " + activityItem.action + "ed " + activityItem.callingUser + " at " + str(activityItem.dateTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via)
+
 										dev.updateStateOnServer('onOffState', value=activityItem.onState())
 
 										# Update a timestamp of the last time the device was updated
 										dev.updateStateOnServer("lastStateChangeTime", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-
 									else:
 										had_errors_processing = True
-										self.logger.error("Out of sync error while processing activity records, will update device states from server to correct the problem.")
+										self.logger.error("August logs are out of sync or there was a processing error, will update device states from August Server to correct.")
 
 							# PROCESS LOCK TRIGGERS
 							for trigger in indigo.triggers.iter("self.lockByPerson"):
@@ -795,7 +808,7 @@ class Plugin(indigo.PluginBase):
 							# PROCESS DOORBELL TRIGGERS
 							for trigger in indigo.triggers.iter("self.doorbellMotion"):
 								self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
-								if delta_time.total_seconds() <= 500000:  #int(trigger.pluginProps["maxLatency"])
+								if delta_time.total_seconds() <= int(trigger.pluginProps["maxLatency"]):
 									if trigger.pluginProps["eventType"] == "any":
 										indigo.trigger.execute(trigger)
 									elif trigger.pluginProps["eventType"] == activityItem.action:
@@ -832,7 +845,7 @@ class Plugin(indigo.PluginBase):
 							indigo.server.log(u"Received \"" + dev.name + "\" was unlocked")
 
 					dev.updateStateOnServer('onOffState', value=serverState)
-
+					
 					# Update a timestamp of the last time the device was updated
 					dev.updateStateOnServer("lastStateChangeTime", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 			else:
@@ -858,14 +871,14 @@ class Plugin(indigo.PluginBase):
 			return
 
 		# CREATE THE Varaible Folder
-		if variableFolderName != self.indigoVariablesFolderName:
-			self.indigoVariablesFolderName = variableFolderName
+#		if variableFolderName != self.indigoVariablesFolderName:
+		self.indigoVariablesFolderName = variableFolderName
 
-			if self.indigoVariablesFolderName not in indigo.variables.folders:
-				self.indigoVariablesFolderID = indigo.variables.folder.create(self.indigoVariablesFolderName).id
-				indigo.server.log(self.indigoVariablesFolderName+ u" folder created")
-			else:
-				self.indigoVariablesFolderID=indigo.variables.folders[self.indigoVariablesFolderName].id
+		if self.indigoVariablesFolderName not in indigo.variables.folders:
+			self.indigoVariablesFolderID = indigo.variables.folder.create(self.indigoVariablesFolderName).id
+			indigo.server.log(self.indigoVariablesFolderName+ u" folder created")
+		else:
+			self.indigoVariablesFolderID=indigo.variables.folders[self.indigoVariablesFolderName].id
 
 		
 		self.createVariables()
@@ -881,7 +894,9 @@ class Plugin(indigo.PluginBase):
 				if not varName in indigo.variables:
 					indigo.variable.create(varName,folder=self.indigoVariablesFolderID)
 
-				indigo.server.log("Created variables for lock " + dev.name)
+				self.logger.debug("Created variables for lock " + dev.name)
+		else:
+			self.createVariableFolder(self.indigoVariablesFolderName)
 
 	def updateVariables(self):
 		self.logger.debug("started variable updates")
@@ -891,22 +906,28 @@ class Plugin(indigo.PluginBase):
 					deviceTimeUnlocked = 0
 					deviceTimeLocked = datetime.datetime.now() - datetime.datetime.strptime(dev.states["lastStateChangeTime"], "%Y-%m-%d %H:%M:%S")
 				elif not dev.onState:
-					deviceTimeUnlocked = datetime.datetime.now() - datetime.datetime.strptime(dev.states["lastStateChangeTime"], "%Y-%m-%d %H:%M:%S")		
+					deviceTimeUnlocked = datetime.datetime.now() - datetime.datetime.strptime(dev.states["lastStateChangeTime"], "%Y-%m-%d %H:%M:%S")
 					deviceTimeLocked = 0
 
 				varName = dev.name.replace(' ', '_') + "_locked_minutes"
-				if varName in indigo.variables:
-					if type(deviceTimeLocked) is datetime.timedelta:
+				if type(deviceTimeLocked) is datetime.timedelta:
+					if varName in indigo.variables:
 						indigo.variable.updateValue(varName, str(int(deviceTimeLocked.total_seconds() // 60 % 60)))
-					else:
+					dev.updateStateOnServer("locked_minutes", int(deviceTimeLocked.total_seconds() // 60 % 60))
+				else:
+					if varName in indigo.variables:
 						indigo.variable.updateValue(varName, str(deviceTimeLocked))
+					dev.updateStateOnServer("locked_minutes", deviceTimeLocked)
 
 				varName = dev.name.replace(' ', '_') + "_unlocked_minutes"
-				if varName in indigo.variables:
-					if type(deviceTimeUnlocked) is datetime.timedelta:
+				if type(deviceTimeUnlocked) is datetime.timedelta:
+					if varName in indigo.variables:
 						indigo.variable.updateValue(varName, str(int(deviceTimeUnlocked.total_seconds() // 60 % 60)))
-					else:
+					dev.updateStateOnServer("unlocked_minutes", int(deviceTimeUnlocked.total_seconds() // 60 % 60))
+				else:
+					if varName in indigo.variables:
 						indigo.variable.updateValue(varName, str(deviceTimeUnlocked))
+					dev.updateStateOnServer("unlocked_minutes", deviceTimeUnlocked)
 
 		self.logger.debug("finished variable updates")
 

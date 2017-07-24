@@ -88,4 +88,23 @@
 			</Field>
 		</ConfigUI>
     </Event>
+
+    <Event id="invalidCode">
+        <Name>Invalid Code</Name>
+  		<ConfigUI>
+			<Field type="menu" id="maxLatency" defaultValue="60">
+				<Label>Maximum Latency:</Label>
+				<List>
+					<Option value="5">5 Seconds</Option>
+					<Option value="10">10 Seconds</Option>
+					<Option value="20">20 Seconds</Option>
+					<Option value="30">30 Seconds</Option>
+					<Option value="45">45 Seconds</Option>
+					<Option value="60">60 Seconds</Option>
+					<Option value="90">90 Seconds</Option>
+				</List>
+			</Field>
+		</ConfigUI>
+    </Event>
+
 </Events>

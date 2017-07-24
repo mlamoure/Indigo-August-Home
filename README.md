@@ -1,19 +1,24 @@
 Indigo (http://www.indigodomo.com) plugin for August Smart Locks and Doorbell
 
+# Requirements #
+In addition to the August Lock, you will need either a August Doorbell or August Connect (untested, as I don't have one) in order for the plugin to work. Without one of these items, the August servers don't know the status of your lock and cannot control it remotely.  The keypad is optional but supported.
+
 # Features #
-* Obviously supports the Indigo lock device type - Lock, Unlock, Status Requests.  The intent is to give you the tools to delegate the "Auto Lock" functionality of the August to Indigo.  This way, you can tweak the behavior of the auto lock (such as not locking the door every 3 minutes) to instead base this behavior on a combination of other data - such as house presence.
+* Supports the Indigo lock device type - Lock, Unlock, Status Requests.  The intent is to give you the tools to delegate the "Auto Lock" functionality of the August to Indigo.  This way, you can tweak the behavior of the auto lock (such as not locking the door every 3 minutes) to instead base this behavior on a combination of other data - such as house presence.
 * Uses the August cloud API's to control your lock, rather than bluetooth.  The bluetooth control is very hard to set up and control.
 * Supports the use of the August doorbell as a bridge.  Once a lock that is using the doorbell as a bridge is set up, you will also receive doorbell events (motion, missed calls) in Indigo and can configure triggers.  You do not need to set up the doorbell in Indigo as a separate device for this to happen.
-* Supports "via XXXX" to see how the lock state was changed from outside of Indigo (August App, August App Remote, HomeKit, Manually).  Triggers can exclude remote methods from the trigger event.
-* Automatically creates variable folder and variables for tracking the lock and unlock time for each lock.  Usefull in creating Auto Lock feature based on variable values.
+* Supports "via XXXX" to see how the lock state was changed from outside of Indigo (August App, August App Remote, HomeKit, Manually, August Keypad).  Triggers can exclude remote methods from the trigger event.
+* Automatically creates device states and variable folder / variables for tracking the time since the last lock and unlock for each lock. Usefull in creating Auto Lock feature based on variable values.
+* Supports the August keypad including triggers for invalid entry
 
 # Install Notes #
 * The plugin will guide you thorough it.  You will have to get a verification code from August, sent to your email or phone, for the plugin to work.  August verifies based on a per device basis, not once per account.  The plugin must verify a unique ID associated with your August account in order for the plugin to work.
 
 # Triggers #
-* Lock and Unlock events by known people
+* Lock and Unlock events by known people (with ability to exclude remote events - August App or HomeKit).  Note that HomeKit is not possible to decipher if the user was on the local network or remote.
 * Lock and Unlock events by unknown people (typically manual use of the lock)
 * Doorbell events - Missed call, Motion detected
+* Keypad events - Invalid code entry
 
 # Limitations #
 * The plugin works based on polling the August servers for updates to the lock status and your house activity feed.  The plugin supports 15, 30, 45, 60, 90 second polling intervals.  At this time there does not seem to be any better way to receive updates as they happen.  I believe that since August does not have a web application, they do not have a mechanism in their API for web-based event subscriptions.  The notifications on your phone likely use non standard ways of getting notifications as they happen.  Because of this, I've added maximum latency fields to the event triggers.
