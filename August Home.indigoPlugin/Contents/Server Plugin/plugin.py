@@ -97,6 +97,12 @@ class Plugin(indigo.PluginBase):
 			if self.debug:
 				self.update_all_from_august_activity_log()
 
+			self.has_doorbell = len(self.getDoorbells()) > 0
+
+			if self.has_doorbell:
+				self.logger.debug("Found a doorbell associated with this account")
+				self.last_doorbell_motion = datetime.datetime.now()
+
 			self.createVariableFolder(self.indigoVariablesFolderName)
 			self.updateVariables()
 
@@ -140,7 +146,7 @@ class Plugin(indigo.PluginBase):
 
 						if self.lastUpdateCheck < datetime.datetime.now()-datetime.timedelta(hours=DEFAULT_UPDATE_FREQUENCY):
 							self.updater.checkForUpdate(str(self.pluginVersion))
-							self.lastUpdateCheck = datetime.datetime.now()			
+							self.lastUpdateCheck = datetime.datetime.now()		
 
 				except:
 					pass
@@ -177,28 +183,44 @@ class Plugin(indigo.PluginBase):
 		self.debugLog(u"deviceStartComm: %s" % (dev.name,))
 
 		props = dev.pluginProps
+		propsChanged = False
 
-		configured = props["configured"] and "houseID" in props and "houseName" in props
+		if not "lockID" in props:
+			self.logger.error("August device '{}' configured with unknown Lock ID. Reconfigure the device to make it active.".format(dev.name))
+			props["configured"] = False
+			dev.replacePluginPropsOnServer(props)			
+			return
 
-		if not configured:
-			if not "lockID" in props:
-				self.logger.error("August device '{}' configured with unknown Lock ID. Reconfigure the device to make it active.".format(dev.name))
-				return
-
-			# Set IsLockSubType property so Indigo knows device accepts lock actions and should use lock UI.
+		if not "IsLockSubType" in props:
 			props["IsLockSubType"] = True
+			propsChanged = True
+		elif not props["IsLockSubType"]:
+			props["IsLockSubType"] = True
+			propsChanged = True
+
+		if not "SupportsBatteryLevel" in props:		
+			props["SupportsBatteryLevel"] = True
+			propsChanged = True
+		elif not props["IsLockSubType"]:
+			props["SupportsBatteryLevel"] = True
+			propsChanged = True
+
+		if not "houseID" in props or not "houseName" in props:
 			house = self.getLockDetails(props["lockID"])
 			props["houseID"] = house["HouseID"]
 			props["houseName"] = house["HouseName"]
+			propsChanged = True
+			
+		if "SupportsColor" in props:
+			del props["SupportsColor"]
+			propsChanged = True
 
-			# Cleanup properties used by other device types. These can exist if user switches the device type.
-			if "SupportsColor" in props:
-				del props["SupportsColor"]
+		props["configured"] = "houseID" in props and "houseName" in props
 
-			props["configured"] = True
-
+		if propsChanged:
 			dev.replacePluginPropsOnServer(props)
-		else:
+		
+		if props["configured"]:
 			serverState = self.getLockStatus(props["lockID"])
 
 			if serverState is not None:
@@ -275,7 +297,13 @@ class Plugin(indigo.PluginBase):
 		if action.deviceAction == indigo.kUniversalAction.RequestStatus:
 			indigo.server.log(u"sent \"%s\" %s" % (dev.name, "status request"))
 
-			serverState = self.getLockStatus(dev.pluginProps["lockID"])
+			lockDetails = self.getLockDetails(dev.pluginProps["lockID"])
+
+			serverState = lockDetails["LockStatus"]["status"] == "locked"
+
+			batteryLevel = int(100*lockDetails["battery"])
+			batteryLevelStr = u"%d%%" % (int(batteryLevel))
+			dev.updateStateOnServer('batteryLevel', batteryLevel, uiValue=batteryLevelStr)
 
 			if serverState is not None:
 				if dev.onState != serverState:
@@ -476,6 +504,31 @@ class Plugin(indigo.PluginBase):
 		except requests.exceptions.RequestException:
 			self.logger.error('HTTP Request failed')
 
+	def getDoorbells(self):
+		# Get Locks
+		# GET https://api-production.august.com/users/doorbells/mine
+		self.logger.debug("Obtaining a list of doorbells...")
+
+		try:
+			response = requests.get(
+				url="https://api-production.august.com/users/doorbells/mine",
+				headers={
+					"x-august-access-token": self.access_token,
+					"Accept-Version": ACCEPT_VERSION,
+					"x-august-api-key": API_KEY,
+					"x-kease-api-key": API_KEY,
+					"Content-Type": CONTENT_TYPE,
+					"User-Agent": USER_AGENT,
+				}
+			)
+			self.logger.debug('Response HTTP Status Code: {status_code}'.format(
+				status_code=response.status_code))
+			self.logger.debug('Response HTTP Response Body: {content}'.format(
+				content=response.content))
+		except requests.exceptions.RequestException:
+			self.logger.error('HTTP Request failed')
+
+		return json.loads(response.content)
 
 	def getLocks(self):
 		# Get Locks
@@ -840,21 +893,22 @@ class Plugin(indigo.PluginBase):
 							if not self.has_doorbell:
 								self.has_doorbell = True
 
-							self.last_doorbell_motion = datetime.datetime.now()
+							if activityItem.action == "doorbell_call_missed" or activityItem.action == "doorbell_motion_detected":
+								self.last_doorbell_motion = datetime.datetime.now()
 
-							if activityItem.action == "doorbell_call_missed":
-								indigo.server.log(u"Received missed doorbell call at " + activityItem.deviceName + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
-							elif activityItem.action == "doorbell_motion_detected":
-								indigo.server.log(u"Received motion detected event at " + activityItem.deviceName + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
+								if activityItem.action == "doorbell_call_missed":
+									indigo.server.log(u"Received missed doorbell call at " + activityItem.deviceName + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
+								elif activityItem.action == "doorbell_motion_detected":
+									indigo.server.log(u"Received motion detected event at " + activityItem.deviceName + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
 
-							# PROCESS DOORBELL TRIGGERS
-							for trigger in indigo.triggers.iter("self.doorbellMotion"):
-								self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
-								if delta_time.total_seconds() <= int(trigger.pluginProps["maxLatency"]):
-									if trigger.pluginProps["eventType"] == "any":
-										indigo.trigger.execute(trigger)
-									elif trigger.pluginProps["eventType"] == activityItem.action:
-										indigo.trigger.execute(trigger)
+								# PROCESS DOORBELL TRIGGERS
+								for trigger in indigo.triggers.iter("self.doorbellMotion"):
+									self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
+									if delta_time.total_seconds() <= int(trigger.pluginProps["maxLatency"]):
+										if trigger.pluginProps["eventType"] == "any":
+											indigo.trigger.execute(trigger)
+										elif trigger.pluginProps["eventType"] == activityItem.action:
+											indigo.trigger.execute(trigger)
 						
 							self.logger.debug("Completed processing doorbell triggers")
 
@@ -874,8 +928,14 @@ class Plugin(indigo.PluginBase):
 		had_errors = False
 
 		for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
-			serverState = self.getLockStatus(dev.pluginProps["lockID"])
+			lockDetails = self.getLockDetails(dev.pluginProps["lockID"])
+			serverState = lockDetails["LockStatus"]["status"] == "locked"
 			self.logger.debug("Server state for " + dev.name + " is " + str(serverState))
+
+			batteryLevel = int(100*lockDetails["battery"])
+			batteryLevelStr = u"%d%%" % (int(batteryLevel))
+			dev.updateStateOnServer('batteryLevel', batteryLevel, uiValue=batteryLevelStr)
+
 			if serverState is not None:
 				if dev.onState != serverState:
 
