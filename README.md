@@ -9,6 +9,7 @@ In addition to the August Lock, you will need either a August Doorbell or August
 * Supports the use of the August doorbell as a bridge.  Once a lock that is using the doorbell as a bridge is set up, you will also receive doorbell events (motion, missed calls) in Indigo and can configure triggers.  You do not need to set up the doorbell in Indigo as a separate device for this to happen.
 * Supports "via XXXX" to see how the lock state was changed from outside of Indigo (August App, August App Remote, HomeKit, Manually, August Keypad).  Triggers can exclude remote methods from the trigger event.
 * Automatically creates device states and variable folder / variables for tracking the time since the last lock and unlock for each lock. Usefull in creating Auto Lock feature based on variable values.
+* Automatically creates house variables for tracking the last time since a motion event has occured
 * Supports the August keypad including triggers for invalid entry
 
 # Install Notes #
