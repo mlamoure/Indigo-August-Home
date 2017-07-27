@@ -1021,11 +1021,21 @@ class Plugin(indigo.PluginBase):
 						indigo.variable.updateValue(varName, str(int(last_doorbell_motion_since.total_seconds() // 60)))
 
 			for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
+				deviceTimeLocked = 0
+				deviceTimeUnlocked = 0
+
 				if dev.onState:
 					deviceTimeUnlocked = 0
-					deviceTimeLocked = datetime.datetime.now() - datetime.datetime.strptime(dev.states["lastStateChangeTime"], "%Y-%m-%d %H:%M:%S")
+					try:
+						deviceTimeLocked = datetime.datetime.now() - datetime.datetime.strptime(dev.states["lastStateChangeTime"], "%Y-%m-%d %H:%M:%S")
+					except:
+						deviceTimeLocked = 0
 				elif not dev.onState:
-					deviceTimeUnlocked = datetime.datetime.now() - datetime.datetime.strptime(dev.states["lastStateChangeTime"], "%Y-%m-%d %H:%M:%S")
+					try:
+						deviceTimeUnlocked = datetime.datetime.now() - datetime.datetime.strptime(dev.states["lastStateChangeTime"], "%Y-%m-%d %H:%M:%S")
+					except:
+						deviceTimeUnlocked = 0
+		
 					deviceTimeLocked = 0
 
 				varName = dev.name.replace(' ', '_') + "_locked_minutes"
