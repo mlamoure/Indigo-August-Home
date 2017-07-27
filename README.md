@@ -11,6 +11,7 @@ In addition to the August Lock, you will need either a August Doorbell or August
 * Automatically creates device states and variable folder / variables for tracking the time since the last lock and unlock for each lock. Useful in creating Auto Lock feature based on variable values.
 * Automatically creates house variables for tracking the last time since a motion event has occurred.
 * Supports the August keypad including triggers for invalid entry.
+* Automatic update notifications.
 
 # Install Notes #
 * The plugin will guide you thorough it.  You will have to get a verification code from August, sent to your email or phone, for the plugin to work.  August verifies based on a per device basis, not once per account.  The plugin must verify a unique ID associated with your August account in order for the plugin to work.

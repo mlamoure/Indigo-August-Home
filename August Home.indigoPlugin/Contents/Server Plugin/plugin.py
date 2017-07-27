@@ -823,7 +823,7 @@ class Plugin(indigo.PluginBase):
 
 									# Process Invalid Code
 									if activityItem.action == "invalidcode":
-										indigo.server.log("Invalid entry code used on " + dev.name + " at " + str(activityItem.dateTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
+										indigo.server.log("Invalid entry code used on " + dev.name + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
 
 										# Process any Invalid code triggers
 										for trigger in indigo.triggers.iter("self.invalidCode"):
@@ -851,9 +851,9 @@ class Plugin(indigo.PluginBase):
 										extraText = " (this event was delayed in the August activity log, so the lock state had already been updated in Indigo.  August Home is displaying the details and processing for triggers.)"
 
 									if activityItem.action == "onetouchlock":
-										indigo.server.log(u"Received \"" + dev.name + "\" was One-Touch Locked at " + str(activityItem.dateTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
+										indigo.server.log(u"Received \"" + dev.name + "\" was One-Touch Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
 									else:
-										indigo.server.log(u"Received \"" + dev.name + "\" was " + activityItem.action + "ed " + activityItem.callingUser + " at " + str(activityItem.dateTime) + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
+										indigo.server.log(u"Received \"" + dev.name + "\" was " + activityItem.action + "ed " + activityItem.callingUser + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
 
 									if dev.onState != activityItem.onState():									
 										dev.updateStateOnServer('onOffState', value=activityItem.onState())
