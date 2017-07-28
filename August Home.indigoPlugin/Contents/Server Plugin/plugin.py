@@ -19,7 +19,8 @@ CONTENT_TYPE = "application/json"
 USER_AGENT = "August/Luna-3.2.2"
 ACCEPT_VERSION = "0.0.1"
 DEFAULT_POLLING_INTERVAL = 90  # number of seconds between each poll
-MAXIMUM_ACTIVITY_ITEMS = 10 # Max number of activity items to request per house to process for latest state information
+MAXIMUM_ACTIVITY_ITEMS = 20 # Max number of activity items to request per house to process for latest state information
+MAXIMUM_ACTIVITY_ITEMS_QUERY = 8
 TIMEOUT_PUT = 10
 TIMEOUT_GET = 4
 ACTIVITY_MATCHING_THRESHOLD = 2 # The number of seconds as a threshold on the difference between server and local timestamps for event matching
@@ -473,7 +474,7 @@ class Plugin(indigo.PluginBase):
 
 		self.logger.debug("Validation request sent via Email")
 
-	def getHouseActivity(self, houseID):
+	def getHouseActivity(self, houseID, numItems = MAXIMUM_ACTIVITY_ITEMS_QUERY):
 		# Get Locks
 		# GET https://api-production.august.com/houses/<houseID>/activities"
 
@@ -481,7 +482,7 @@ class Plugin(indigo.PluginBase):
 			response = requests.get(
 				url="https://api-production.august.com/houses/" + houseID + "/activities",
 				params={
-					"limit": MAXIMUM_ACTIVITY_ITEMS,
+					"limit": numItems,
 				},
 				headers={
 					"x-august-access-token": self.access_token,
@@ -740,7 +741,14 @@ class Plugin(indigo.PluginBase):
 			if houseID == chk_houseID:
 				######## LOAD NEW ACTIVITY ITEMS
 				newItemCount = 0
-				for serverActivityItem in self.getHouseActivity(houseID):
+				houseActivity = None
+
+				if initial_load:
+					houseActivity = self.getHouseActivity(houseID, MAXIMUM_ACTIVITY_ITEMS)
+				else:
+					houseActivity = self.getHouseActivity(houseID)
+
+				for serverActivityItem in houseActivity:
 					itemAlreadyExists = False
 					for localAcivityItem in activityItemList:
 						if localAcivityItem.activityID == serverActivityItem["dateTime"]:
@@ -797,7 +805,7 @@ class Plugin(indigo.PluginBase):
 
 		if self.debug_L2:
 			for item in activityItemList:
-				self.logger.debug(str(item.activityID) + ", " + str(item.dateTime) + ", " + str(item.has_processed))
+				self.logger.debug(str(item.activityID) + ", " + str(item.dateTime) + ", " + str(item.action) + ", " + str(item.has_processed))
 
 	def update_all_from_august_activity_log(self):
 		if self.configStatus:
@@ -848,10 +856,12 @@ class Plugin(indigo.PluginBase):
 
 									extraText = ""
 									if dev.onState == activityItem.onState():
-										extraText = " (this event was delayed in the August activity log, so the lock state had already been updated in Indigo.  August Home is displaying the details and processing for triggers.)"
+										extraText = " (this event was delayed in the August activity log, so the Indigo lock state had already been updated.)"
 
 									if activityItem.action == "onetouchlock":
 										indigo.server.log(u"Received \"" + dev.name + "\" was One-Touch Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
+									elif activityItem.callingUser == "by Auto Relock":
+										indigo.server.log(u"Received \"" + dev.name + "\" was Auto-Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")									
 									else:
 										indigo.server.log(u"Received \"" + dev.name + "\" was " + activityItem.action + "ed " + activityItem.callingUser + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
 
@@ -892,7 +902,7 @@ class Plugin(indigo.PluginBase):
 						elif activityItem.deviceType == "doorbell":
 							if not self.has_doorbell:
 								self.has_doorbell = True
-
+							# There is another one called "partner_video_streaming" and "doorbell_calll_initiated" that is unknown
 							if activityItem.action == "doorbell_call_missed" or activityItem.action == "doorbell_motion_detected":
 								self.last_doorbell_motion = datetime.datetime.now()
 
