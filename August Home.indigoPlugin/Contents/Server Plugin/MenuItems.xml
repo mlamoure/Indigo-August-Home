@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<MenuItems>
+    <MenuItem id="checkForUpdates">
+        <Name>Check for Updates</Name>
+        <CallbackMethod>checkForUpdates</CallbackMethod>
+    </MenuItem>
+    <MenuItem id="updatePlugin">
+        <Name>Update Plugin</Name>
+        <CallbackMethod>updatePlugin</CallbackMethod>
+    </MenuItem>
+</MenuItems>
