@@ -7,16 +7,20 @@ In addition to the August Lock, you will need either a August Doorbell or August
 * Supports the Indigo lock device type with the typical states - Lock, Unlock, Status Requests, and even Battery Level.  The intent is to give you the tools to delegate the "Auto Lock" functionality of the August to Indigo.  This way, as an example, you can tweak the behavior of the auto lock (such as not locking the door every 3 minutes) to instead base this behavior on a combination of other data - such as house presence.
 * Uses the August cloud API's to control your lock, rather than bluetooth.  The bluetooth control is very hard to set up and control.
 * Supports the use of the August doorbell as a bridge.  Once a lock that is using the doorbell as a bridge is set up, you will also receive doorbell events (motion, missed calls) in Indigo and can configure triggers.  You do not need to set up the doorbell in Indigo as a separate device for this to happen.
+* Supports "via XXXX" in the Indigo event log to see how the lock state was changed from outside of Indigo (August App, August App Remote, HomeKit, Manually, August Keypad).
 * Supports the August keypad.
 * Automatic update notifications.
 
+# Install Notes #
+* The plugin will guide you thorough it.  You will have to get a verification code from August, sent to your email or phone, for the plugin to work.  August verifies based on a per device basis, not once per account.  The plugin must verify a unique ID associated with your August account in order for the plugin to work.
+
 # Events #
-* Supports "via XXXX" to see how the lock state was changed from outside of Indigo (August App, August App Remote, HomeKit, Manually, August Keypad).  Triggers can exclude remote methods from the trigger event.
+* All events can be configured with a maximum latency.  This prevents events from being triggered if they occured too long in the past.  Ocassionally events can be discovered delayed, in particular if your bridge goes offline.  Read the Plugin Limitions for more details.
 
 | Event                | Description                                                                                                                                                                                                                  |
 |:---------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | doorbell_motion_detected       | Event that fires when a motion_detected, or call_missed.  Requires a doorbell bridge for these events to occur.                                                                                       |
-| lockByPerson       | Event that can trigger upon a lock or unlock event by a known person.                                                                                       |
+| lockByPerson       | Event that can trigger upon a lock or unlock event by a known person.  Options are available to exclude remote methods (HomeKid, August App Remote).  Note that HomeKit is not possible to decipher if the user was on the local network or remote.                                                                                       |
 | lockByUnknownPerson       | Event that can trigger upon a lock or unlock event by a known person.                                                                                       |
 | invalidCode       | Event that can trigger when a invalid key code is entered.  Requires the August Keypad.                                                                                       |
 
@@ -35,15 +39,6 @@ In addition to the August Lock, you will need either a August Doorbell or August
 
 # Actions #
 * An action to reset the Unlock Timer is available.  Useful if you are using the unlock timer for auto lock.
-
-# Install Notes #
-* The plugin will guide you thorough it.  You will have to get a verification code from August, sent to your email or phone, for the plugin to work.  August verifies based on a per device basis, not once per account.  The plugin must verify a unique ID associated with your August account in order for the plugin to work.
-
-# Triggers #
-* Lock and Unlock events by known people (with ability to exclude remote events - August App or HomeKit).  Note that HomeKit is not possible to decipher if the user was on the local network or remote.
-* Lock and Unlock events by unknown people (typically manual use of the lock)
-* Doorbell events - Missed call, Motion detected
-* Keypad events - Invalid code entry
 
 # Limitations #
 * The plugin works based on polling the August servers for updates to the lock status and your house activity feed.  The plugin supports 10, 15, 30, 45, 60, 90 second polling intervals.  At this time there does not seem to be any better way to receive updates as they happen.  The house feed provides more information, but sometimes is lagged because of the way the August devices work.  Therefore, the plugin will prefer the house activity feed but periodically check the status API for sanity.  Given that the activity feed is the only source for doorbell events, such as motion detected, missed calls, etc., there can be a lag for these events to be discovered by the plugin.  Because of this, I've added maximum latency fields to the event triggers.
