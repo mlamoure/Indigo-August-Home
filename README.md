@@ -14,7 +14,7 @@ In addition to the August Lock, you will need either a August Doorbell or August
 * Supports "via XXXX" to see how the lock state was changed from outside of Indigo (August App, August App Remote, HomeKit, Manually, August Keypad).  Triggers can exclude remote methods from the trigger event.
 
 | Event                | Description                                                                                                                                                                                                                  |
-|:---------------------|:--------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|:---------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | doorbell_motion_detected       | Event that fires when a motion_detected, or call_missed.  Requires a doorbell bridge for these events to occur.                                                                                       |
 | lockByPerson       | Event that can trigger upon a lock or unlock event by a known person.                                                                                       |
 | lockByUnknownPerson       | Event that can trigger upon a lock or unlock event by a known person.                                                                                       |
