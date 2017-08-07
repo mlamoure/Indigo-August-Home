@@ -253,9 +253,9 @@ class Plugin(indigo.PluginBase):
 		if serverState is not None:
 			if dev.onState != serverState:
 				if serverState:
-						indigo.server.log(u"Received \"" + dev.name + "\" was locked")
+						indigo.server.log(u"received \"" + dev.name + "\" was locked")
 				else:
-						indigo.server.log(u"Received \"" + dev.name + "\" was unlocked")
+						indigo.server.log(u"received \"" + dev.name + "\" was unlocked")
 
 				dev.updateStateOnServer('onOffState', value=serverState)
 				self.logger.error("The state of the lock in Indigo was out of sync, " + dev.name + " was already " + actionstr + "ed")
@@ -309,9 +309,9 @@ class Plugin(indigo.PluginBase):
 			if serverState is not None:
 				if dev.onState != serverState:
 					if serverState:
-							indigo.server.log(u"Received \"" + dev.name + "\" was locked")
+							indigo.server.log(u"received \"" + dev.name + "\" was locked")
 					else:
-							indigo.server.log(u"Received \"" + dev.name + "\" was unlocked")
+							indigo.server.log(u"received \"" + dev.name + "\" was unlocked")
 
 					dev.updateStateOnServer('onOffState', value=serverState)
 
@@ -711,6 +711,10 @@ class Plugin(indigo.PluginBase):
 
 		return locks_list
 
+	def resetUnlockTimer(self, pluginAction, dev):		
+		# Update a timestamp of the last time the device was updated
+		dev.updateStateOnServer("lastStateChangeTime", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
 	########################################
 	# Valication callbacks
 	########################################
@@ -859,11 +863,11 @@ class Plugin(indigo.PluginBase):
 										extraText = " (this event was delayed in the August activity log, so the Indigo lock state had already been updated.)"
 
 									if activityItem.action == "onetouchlock":
-										indigo.server.log(u"Received \"" + dev.name + "\" was One-Touch Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
+										indigo.server.log(u"received \"" + dev.name + "\" was One-Touch Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
 									elif activityItem.callingUser == "by Auto Relock":
-										indigo.server.log(u"Received \"" + dev.name + "\" was Auto-Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")									
+										indigo.server.log(u"received \"" + dev.name + "\" was Auto-Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")									
 									else:
-										indigo.server.log(u"Received \"" + dev.name + "\" was " + activityItem.action + "ed " + activityItem.callingUser + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
+										indigo.server.log(u"received \"" + dev.name + "\" was " + activityItem.action + "ed " + activityItem.callingUser + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
 
 									if dev.onState != activityItem.onState():									
 										dev.updateStateOnServer('onOffState', value=activityItem.onState())
@@ -907,9 +911,9 @@ class Plugin(indigo.PluginBase):
 								self.last_doorbell_motion = datetime.datetime.now()
 
 								if activityItem.action == "doorbell_call_missed":
-									indigo.server.log(u"Received missed doorbell call at " + activityItem.deviceName + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
+									indigo.server.log(u"received missed doorbell call at " + activityItem.deviceName + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
 								elif activityItem.action == "doorbell_motion_detected":
-									indigo.server.log(u"Received motion detected event at " + activityItem.deviceName + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
+									indigo.server.log(u"received motion detected event at " + activityItem.deviceName + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
 
 								# PROCESS DOORBELL TRIGGERS
 								for trigger in indigo.triggers.iter("self.doorbellMotion"):
@@ -950,9 +954,9 @@ class Plugin(indigo.PluginBase):
 				if dev.onState != serverState:
 
 					if serverState:
-							indigo.server.log(u"Received \"" + dev.name + "\" was locked")
+							indigo.server.log(u"received \"" + dev.name + "\" was locked")
 					else:
-							indigo.server.log(u"Received \"" + dev.name + "\" was unlocked")
+							indigo.server.log(u"received \"" + dev.name + "\" was unlocked")
 
 					dev.updateStateOnServer('onOffState', value=serverState)
 					
