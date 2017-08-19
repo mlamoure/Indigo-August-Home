@@ -20,8 +20,8 @@ In addition to the August Lock, you will need either a August Doorbell or August
 | Event                | Description                                                                                                                                                                                                                  |
 |:---------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | doorbell_motion_detected       | Event that fires when a motion_detected, or call_missed.  Requires a doorbell bridge for these events to occur.                                                                                       |
-| lockByPerson       | Event that can trigger upon a lock or unlock event by a known person.  Options are available to exclude remote methods (HomeKid, August App Remote).  Note that HomeKit is not possible to decipher if the user was on the local network or remote.                                                                                       |
-| lockByUnknownPerson       | Event that can trigger upon a lock or unlock event by a known person.                                                                                       |
+| lockByPerson       | Event that can trigger upon a lock or unlock event by a known person.  Options are available to include remote methods (HomeKit, August App Remote).  Note that HomeKit is not possible to decipher if the user was on the local network or remote.                                                                                       |
+| lockByUnknownPerson       | Event that can trigger upon a lock or unlock event by a unknown person.  This will include manual unlocks.                                                                                       |
 | invalidCode       | Event that can trigger when a invalid key code is entered.  Requires the August Keypad.                                                                                       |
 
 # States #

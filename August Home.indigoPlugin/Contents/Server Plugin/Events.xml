@@ -69,7 +69,7 @@
         <Name>Lock or Unlock by a unknown person</Name>
   		<ConfigUI>
 		<Field type="menu" id="lockUnlock" defaultValue="unlocked">
-			<Label>Popup Menu:</Label>
+			<Label>Lock Status:</Label>
 			<List>
 				<Option value="lock">Locked</Option>
 				<Option value="unlock">Unlocked</Option>

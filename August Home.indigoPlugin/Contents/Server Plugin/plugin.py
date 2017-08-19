@@ -850,6 +850,7 @@ class Plugin(indigo.PluginBase):
 									except ValueError:
 										lastSentIndigoUpdateTime = None
 
+									# IDENTIFY ACTIONS IN THE ACTIVITY LOG THAT CAME FROM INDIGO TO AVOID REDUNDANT PROCESSING
 									if lastSentIndigoUpdateTime is not None:
 										if activityItem.via == "via August App Remotely":
 											if activityItem.dateTime - datetime.timedelta(seconds = ACTIVITY_MATCHING_THRESHOLD) <= lastSentIndigoUpdateTime <= activityItem.dateTime + datetime.timedelta(seconds = ACTIVITY_MATCHING_THRESHOLD):
@@ -898,7 +899,7 @@ class Plugin(indigo.PluginBase):
 								self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
 								if int(delta_time.total_seconds()) <= int(trigger.pluginProps["maxLatency"]):
 									if trigger.pluginProps["lockUnlock"] == activityItem.action or trigger.pluginProps["lockUnlock"] == "any":
-											if activityItem.callingUser == "Unknown User" and trigger.id == "lockByUnknownPerson":
+											if activityItem.callingUser == "Unknown User" or activityItem.callingUser == "manually":
 												indigo.trigger.execute(trigger)
 
 							self.logger.debug("Completed processing lock triggers")
