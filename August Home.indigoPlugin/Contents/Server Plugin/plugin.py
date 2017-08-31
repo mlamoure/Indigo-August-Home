@@ -867,6 +867,9 @@ class Plugin(indigo.PluginBase):
 										indigo.server.log(u"received \"" + dev.name + "\" was One-Touch Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
 									elif activityItem.callingUser == "by Auto Relock":
 										indigo.server.log(u"received \"" + dev.name + "\" was Auto-Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")									
+									elif activityItem.action == "addedpin":
+										indigo.server.log(u"received \"" + dev.name + "\" PIN Code was added for a new user (ignored).")
+										break										
 									else:
 										indigo.server.log(u"received \"" + dev.name + "\" was " + activityItem.action + "ed " + activityItem.callingUser + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
 
