@@ -74,6 +74,7 @@ class Plugin(indigo.PluginBase):
 							  pluginPrefs.get('ddlLoginMethod'))
 
 		self.house_list = []
+		self.doorbell_list = []
 		self.lastServerRefresh = datetime.datetime.now()
 		self.lastForcedServerRefresh = datetime.datetime.now()
 
@@ -98,15 +99,25 @@ class Plugin(indigo.PluginBase):
 			if self.debug:
 				self.update_all_from_august_activity_log()
 
-			self.has_doorbell = len(self.getDoorbells()) > 0
-
-			if self.has_doorbell:
-				self.logger.debug("Found a doorbell associated with this account")
-				self.last_doorbell_motion = datetime.datetime.now()
+			self.configureDoorbells()
 
 			self.createVariableFolder(self.indigoVariablesFolderName)
 			self.updateVariables()
 
+
+	def configureDoorbells(self):
+		db_list = self.getDoorbells()	
+		self.has_doorbell = len(db_list) > 0
+		self.doorbell_list = []
+
+		if self.has_doorbell:
+			for key, value in db_list.items():
+	
+				self.doorbell_list.append((key, value["name"]))
+				self.logger.debug("Added doorbell " + value["name"] + " with ID " + key)
+
+			self.logger.debug("Found a doorbell associated with this account")
+			self.last_doorbell_motion = datetime.datetime.now()
 
 	def checkForUpdates(self):
 		self.updater.checkForUpdate()
@@ -139,6 +150,11 @@ class Plugin(indigo.PluginBase):
 						# every X minutes compare states with server
 						if self.lastForcedServerRefresh < datetime.datetime.now()-datetime.timedelta(seconds=self.getLocksMethodRefreshRate):
 							self.logger.debug("Refreshing status from August \"/locks\" method to ensure accuracy (every " + str(self.getLocksMethodRefreshRate) + " seconds).  Previous run: " + str(self.lastForcedServerRefresh))
+							
+							if self.has_doorbell:
+								for doorbellID, doorbellName in self.doorbell_list:
+									self.wakeup(doorbellID)
+
 							self.update_all_from_august()
 
 							self.trim_local_cache()
@@ -296,6 +312,11 @@ class Plugin(indigo.PluginBase):
 
 		###### STATUS REQUEST ######
 		if action.deviceAction == indigo.kUniversalAction.RequestStatus:
+			if self.has_doorbell:
+				for doorbellID, doorbellName in self.doorbell_list:
+					self.wakeup(doorbellID)
+
+
 			indigo.server.log(u"sent \"%s\" %s" % (dev.name, "status request"))
 
 			lockDetails = self.getLockDetails(dev.pluginProps["lockID"])
@@ -506,7 +527,6 @@ class Plugin(indigo.PluginBase):
 			self.logger.error('HTTP Request failed')
 
 	def getDoorbells(self):
-		# Get Locks
 		# GET https://api-production.august.com/users/doorbells/mine
 		self.logger.debug("Obtaining a list of doorbells...")
 
@@ -621,7 +641,6 @@ class Plugin(indigo.PluginBase):
 		return None
 
 	def sendCommand(self, lockID, command):
-		# Unlock
 		# PUT https://api-production.august.com/remoteoperate/<LOCKID>/<'lock' or 'unlock'>
 
 		try:
@@ -636,9 +655,35 @@ class Plugin(indigo.PluginBase):
 					"User-Agent": USER_AGENT,
 				},
 			)
-			print('Response HTTP Status Code: {status_code}'.format(
+			self.logger.debug('Response HTTP Status Code: {status_code}'.format(
 				status_code=response.status_code))
-			print('Response HTTP Response Body: {content}'.format(
+			self.logger.debug('Response HTTP Response Body: {content}'.format(
+				content=response.content))
+
+			return response.status_code == 200
+
+		except requests.exceptions.RequestException:
+			self.logger.error('HTTP Request failed')
+			return False
+
+	def wakeup(self, doorbellID):
+		# PUT https://api-production.august.com/doorbells/<doorbellID>/wakeup
+		self.logger.debug("Sending a wakeup request")
+		try:
+			response = requests.put(
+				url="https://api-production.august.com/doorbells/" + doorbellID + "/wakeup",
+				headers={
+					"x-august-access-token": self.access_token,
+					"Accept-Version": ACCEPT_VERSION,
+					"x-august-api-key": API_KEY,
+					"x-kease-api-key": API_KEY,
+					"Content-Type": CONTENT_TYPE,
+					"User-Agent": USER_AGENT,
+				},
+			)
+			self.logger.debug('Response HTTP Status Code: {status_code}'.format(
+				status_code=response.status_code))
+			self.logger.debug('Response HTTP Response Body: {content}'.format(
 				content=response.content))
 
 			return response.status_code == 200
