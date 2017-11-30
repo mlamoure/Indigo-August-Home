@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<Actions>
+    <Action id="resetUnlockTimer" deviceFilter="self">
+        <Name>Reset Unlock Timer</Name>
+        <CallbackMethod>resetUnlockTimer</CallbackMethod>
+    </Action>
+</Actions>

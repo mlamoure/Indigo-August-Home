@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>PluginVersion</key>
-	<string>1.0.7</string>
+	<string>1.0.8</string>
 	<key>ServerApiVersion</key>
 	<string>2.0</string>
 	<key>IwsApiVersion</key>
@@ -11,7 +11,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>August Home</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.perceptiveautomation.indigoplugin.augusthome</string>
+	<string>com.vtmikel.augusthome</string>
 	<key>CFBundleVersion</key>
 	<string>1.0.0</string>
 	<key>CFBundleURLTypes</key>
