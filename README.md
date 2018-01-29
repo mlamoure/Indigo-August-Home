@@ -3,6 +3,8 @@ Indigo (http://www.indigodomo.com) plugin for August Smart Locks and Doorbell
 # Requirements #
 In addition to the August Lock, you will need either a August Doorbell or August Connect (untested, as I don't have one) in order for the plugin to work. Without one of these items, the August servers don't know the status of your lock and cannot control it remotely.  The keypad is optional but supported.
 
+NOTE: This plugin is untested for the Augsut Pro with Connect.  The August Pro should work directly with Indigo as it is Z-Wave compatible.  This is a more reliable way of reciving updates from your lock, removing the cloud as a middle-man.  Indigo could then act as a substitute for the Connect, giving remote access abilities.
+
 # Features #
 * Supports the Indigo lock device type with the typical states - Lock, Unlock, Status Requests, and even Battery Level.  The intent is to give you the tools to delegate the "Auto Lock" functionality of the August to Indigo.  This way, as an example, you can tweak the behavior of the auto lock (such as not locking the door every 3 minutes) to instead base this behavior on a combination of other data - such as house presence.
 * Uses the August cloud API's to control your lock, rather than bluetooth.  The bluetooth control is very hard to set up and control.
@@ -48,3 +50,4 @@ In addition to the August Lock, you will need either a August Doorbell or August
 * Multiple locks
 * Multiple houses
 * August connect as a bridge
+* August Pro
