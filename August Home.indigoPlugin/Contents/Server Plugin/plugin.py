@@ -165,7 +165,8 @@ class Plugin(indigo.PluginBase):
 							self.updater.checkForUpdate(str(self.pluginVersion))
 							self.lastUpdateCheck = datetime.datetime.now()		
 
-				except:
+				except Exception as e:
+					self.logger.debug(e)
 					pass
 				self.sleep(int(self.pollingInterval))
 
