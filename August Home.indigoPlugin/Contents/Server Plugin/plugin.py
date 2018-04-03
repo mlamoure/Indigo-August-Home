@@ -81,6 +81,7 @@ class Plugin(indigo.PluginBase):
 		self.indigoVariablesFolderName = pluginPrefs.get("indigoVariablesFolderName", None)
 		self.indigoVariablesFolderID = None
 		self.has_doorbell = False
+		self.has_lock = False
 
 		self.updater = GitHubPluginUpdater(self)
 		self.updater.checkForUpdate(str(self.pluginVersion))
@@ -116,6 +117,17 @@ class Plugin(indigo.PluginBase):
 				self.doorbell_list.append((key, value["name"]))
 				self.logger.debug("Added doorbell " + value["name"] + " with ID " + key)
 
+				found = False
+
+				for houseID, houseName, activityItemList in self.house_list:
+					if houseID == value["HouseID"]:
+						found = True
+						break
+
+				if not found:
+					self.logger.debug("Adding new house: " + value["HouseID"] + " to house cache list")
+					self.house_list.append([value["HouseID"], "Unknown house with Doorbell", []])
+
 			self.logger.debug("Found a doorbell associated with this account")
 			self.last_doorbell_motion = datetime.datetime.now()
 
@@ -148,7 +160,7 @@ class Plugin(indigo.PluginBase):
 						self.update_all_from_august_activity_log()
 
 						# every X minutes compare states with server
-						if self.lastForcedServerRefresh < datetime.datetime.now()-datetime.timedelta(seconds=self.getLocksMethodRefreshRate):
+						if self.has_lock and self.lastForcedServerRefresh < datetime.datetime.now()-datetime.timedelta(seconds=self.getLocksMethodRefreshRate):
 							self.logger.debug("Refreshing status from August \"/locks\" method to ensure accuracy (every " + str(self.getLocksMethodRefreshRate) + " seconds).  Previous run: " + str(self.lastForcedServerRefresh))
 							
 							if self.has_doorbell:
@@ -179,8 +191,10 @@ class Plugin(indigo.PluginBase):
 
 	def resetHouseList(self):
 		self.house_list = []
+		self.has_lock = False
 
 		for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
+			self.has_lock = True
 			found = False
 			for houseID, houseName, activityItemList in self.house_list:
 				if houseID == dev.pluginProps["houseID"]:
@@ -190,6 +204,8 @@ class Plugin(indigo.PluginBase):
 			if not found:
 				self.logger.debug("Adding new house: " + dev.pluginProps["houseID"] + " to house cache list")
 				self.house_list.append([dev.pluginProps["houseID"], dev.pluginProps["houseName"], []])
+
+		self.configureDoorbells()
 
 
 	########################################
@@ -208,6 +224,8 @@ class Plugin(indigo.PluginBase):
 			props["configured"] = False
 			dev.replacePluginPropsOnServer(props)			
 			return
+
+		self.has_lock = True
 
 		if not "IsLockSubType" in props:
 			props["IsLockSubType"] = True
