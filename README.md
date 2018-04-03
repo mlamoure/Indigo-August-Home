@@ -47,6 +47,9 @@ NOTE: This plugin is untested for the Augsut Pro with Connect.  The August Pro s
 * Sending lock and unlock commands from Indigo can occasionally have a lag, sometimes up to 20 seconds.  I've seen this happen while manually triggering the API's, so it has nothing to do with the plugin.  The plugin has a long timeout period, but sometimes failures do happen.  I'm guessing it has to do with August's servers connecting to the bridge which connects to the lock, the round trip can take time.  I recommend creating sanity triggers or schedules to ensure that a lock takes place successfully.
 
 # Untested but supported #
+Please report on the Indigo forums if you have any problems with theses configurations, or if you have tested sucessfully so that I can mark them complete:
+
+* Doorbell without a lock
 * Multiple locks
 * Multiple houses
 * August connect as a bridge
