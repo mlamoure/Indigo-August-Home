@@ -816,6 +816,9 @@ class Plugin(indigo.PluginBase):
 				else:
 					houseActivity = self.getHouseActivity(houseID)
 
+				if houseActivity is None:
+					continue
+
 				for serverActivityItem in houseActivity:
 					itemAlreadyExists = False
 					for localAcivityItem in activityItemList:
@@ -826,7 +829,7 @@ class Plugin(indigo.PluginBase):
 					if itemAlreadyExists:
 						# Since we are going through the list in chronological order from August, we can stop processing once we find one that already exists.
 						#break
-						# As it turns out, August will sometimes retro-actively add items, though unusual.
+						# As it turns out, August will sometimes retro-actively add items, though unusual.  The plugin can deal with the out of order events.
 						continue
 					else:
 						activityID = serverActivityItem["dateTime"]
@@ -905,7 +908,7 @@ class Plugin(indigo.PluginBase):
 										for trigger in indigo.triggers.iter("self.invalidCode"):
 											self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
 											if int(delta_time.total_seconds()) <= int(trigger.pluginProps["maxLatency"]):
-												indigo.trigger.execute(trigger)										
+												indigo.trigger.execute(trigger)
 										break
 
 									# Check if the activity log item is an action performed by Indigo
@@ -952,22 +955,32 @@ class Plugin(indigo.PluginBase):
 							# PROCESS LOCK TRIGGERS
 							for trigger in indigo.triggers.iter("self.lockByPerson"):
 								self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
-								if int(delta_time.total_seconds()) <= int(trigger.pluginProps["maxLatency"]):
-									if trigger.pluginProps["lockUnlock"] == activityItem.action or trigger.pluginProps["lockUnlock"] == "any":
-											if trigger.pluginProps["txtName"].lower() in activityItem.callingUser.lower():
-												if activityItem.via == "via August App Remotely" and trigger["chkIncludeRemote"]:
-													indigo.trigger.execute(trigger)
-												elif activityItem.via == "via HomeKit" and trigger.pluginProps["chkIncludeHomeKit"]:
-													indigo.trigger.execute(trigger)
-												elif activityItem.via != "via HomeKit" and activityItem.via != "via August App Remotely":
-													indigo.trigger.execute(trigger)
+								try:
+									if int(delta_time.total_seconds()) <= int(trigger.pluginProps["maxLatency"]):
+										if trigger.pluginProps["lockUnlock"] == activityItem.action or trigger.pluginProps["lockUnlock"] == "any":
+												if trigger.pluginProps["txtName"].lower() in activityItem.callingUser.lower():
+													if activityItem.via == "via August App Remotely" and trigger.pluginProps["chkIncludeRemote"]:
+														indigo.trigger.execute(trigger)
+													elif activityItem.via == "via HomeKit" and trigger.pluginProps["chkIncludeHomeKit"]:
+														indigo.trigger.execute(trigger)
+													elif activityItem.via != "via HomeKit" and activityItem.via != "via August App Remotely":
+														indigo.trigger.execute(trigger)
+									else:
+										self.logger.debug("   been too long.")
+								except Exception as e:
+									self.logger.debug("   error while processing trigger: " + str(e))								
 
 							for trigger in indigo.triggers.iter("self.lockByUnknownPerson"):
 								self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
-								if int(delta_time.total_seconds()) <= int(trigger.pluginProps["maxLatency"]):
-									if trigger.pluginProps["lockUnlock"] == activityItem.action or trigger.pluginProps["lockUnlock"] == "any":
-											if activityItem.callingUser == "Unknown User" or activityItem.callingUser == "manually":
-												indigo.trigger.execute(trigger)
+								try:
+									if int(delta_time.total_seconds()) <= int(trigger.pluginProps["maxLatency"]):
+										if trigger.pluginProps["lockUnlock"] == activityItem.action or trigger.pluginProps["lockUnlock"] == "any":
+												if activityItem.callingUser == "Unknown User" or activityItem.callingUser == "manually":
+													indigo.trigger.execute(trigger)
+									else:
+										self.logger.debug("   been too long.")
+								except Exception as e:
+									self.logger.debug("   error while processing trigger: " + str(e))
 
 							self.logger.debug("Completed processing lock triggers")
 						
@@ -991,6 +1004,9 @@ class Plugin(indigo.PluginBase):
 											indigo.trigger.execute(trigger)
 										elif trigger.pluginProps["eventType"] == activityItem.action:
 											indigo.trigger.execute(trigger)
+									else:
+										self.logger.debug("   been too long.")
+
 						
 							self.logger.debug("Completed processing doorbell triggers")
 

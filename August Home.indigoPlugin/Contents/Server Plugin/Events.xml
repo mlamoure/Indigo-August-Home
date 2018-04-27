@@ -36,7 +36,7 @@
 		        <Label>Contains in the name (first or last name, ignoring case):</Label>
 		    </Field>
 
-			<Field type="menu" id="lockUnlock" defaultValue="unlocked">
+			<Field type="menu" id="lockUnlock" defaultValue="unlock">
 				<Label>Lock Status:</Label>
 				<List>
 					<Option value="lock">Locked</Option>
@@ -68,7 +68,7 @@
     <Event id="lockByUnknownPerson">
         <Name>Lock or Unlock by a unknown person</Name>
   		<ConfigUI>
-		<Field type="menu" id="lockUnlock" defaultValue="unlocked">
+		<Field type="menu" id="lockUnlock" defaultValue="unlock">
 			<Label>Lock Status:</Label>
 			<List>
 				<Option value="lock">Locked</Option>
