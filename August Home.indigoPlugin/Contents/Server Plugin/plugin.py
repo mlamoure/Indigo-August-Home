@@ -11,8 +11,7 @@ import time
 import requests
 import json
 import uuid
-from ghpu import GitHubPluginUpdater
-
+from distutils.version import LooseVersion
 
 API_KEY = "727dba56-fe45-498d-b4aa-293f96aae0e5"
 CONTENT_TYPE = "application/json"
@@ -83,9 +82,7 @@ class Plugin(indigo.PluginBase):
 		self.has_doorbell = False
 		self.has_lock = False
 
-		self.updater = GitHubPluginUpdater(self)
-		self.updater.checkForUpdate(str(self.pluginVersion))
-		self.lastUpdateCheck = datetime.datetime.now()			
+		self.lastUpdateCheck = None
 
 		if self.indigoVariablesFolderName is not None:
 			if self.indigoVariablesFolderName in indigo.variables.folders:
@@ -104,6 +101,8 @@ class Plugin(indigo.PluginBase):
 
 			self.createVariableFolder(self.indigoVariablesFolderName)
 			self.updateVariables()
+
+			self.version_check()
 
 
 	def configureDoorbells(self):
@@ -132,10 +131,38 @@ class Plugin(indigo.PluginBase):
 			self.last_doorbell_motion = datetime.datetime.now()
 
 	def checkForUpdates(self):
-		self.updater.checkForUpdate()
+		self.version_check()
 
-	def updatePlugin(self):
-		self.updater.update()
+	def version_check(self):
+		pluginId = self.pluginId
+		self.lastUpdateCheck = datetime.datetime.now()		
+
+		# Create some URLs we'll use later on
+		current_version_url = "https://api.indigodomo.com/api/v2/pluginstore/plugin-version-info.json?pluginId={}".format(pluginId)
+		store_detail_url = "https://www.indigodomo.com/pluginstore/{}/"
+		try:
+			# GET the url from the servers with a short timeout (avoids hanging the plugin)
+			reply = requests.get(current_version_url, timeout=5)
+			# This will raise an exception if the server returned an error
+			reply.raise_for_status()
+			# We now have a good reply so we get the json
+			reply_dict = reply.json()
+			plugin_dict = reply_dict["plugins"][0]
+			# Make sure that the 'latestRelease' element is a dict (could be a string for built-in plugins).
+			latest_release = plugin_dict["latestRelease"]
+			if isinstance(latest_release, dict):
+				# Compare the current version with the one returned in the reply dict
+				if LooseVersion(latest_release["number"]) > LooseVersion(self.pluginVersion):
+				# The release in the store is newer than the current version.
+				# We'll do a couple of things: first, we'll just log it
+				  self.logger.info(
+					"A new version of the plugin (v{}) is available at: {}".format(
+						latest_release["number"],
+						store_detail_url.format(plugin_dict["id"])
+					)
+				)
+		except Exception as exc:
+			self.logger.error(unicode(exc))
 
 	def shutdown(self):
 		self.debugLog(u"shutdown called")
@@ -174,8 +201,7 @@ class Plugin(indigo.PluginBase):
 						self.updateVariables()
 
 						if self.lastUpdateCheck < datetime.datetime.now()-datetime.timedelta(hours=DEFAULT_UPDATE_FREQUENCY):
-							self.updater.checkForUpdate(str(self.pluginVersion))
-							self.lastUpdateCheck = datetime.datetime.now()		
+							self.version_check()
 
 				except Exception as e:
 					self.logger.debug(e)
