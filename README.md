@@ -10,13 +10,13 @@ Configurations supported:
 Configurations supported (and will likely work), but untested:
 * August Lock with August Connect
 * August Lock Pro with Connect
+* August Doorbell with without August Lock
 
 Please report on the forums if you have problems with, or are working successful with these configurations.
 
 Configurations unsupported:
 * August Lock without a bridge (Doorbell or Connect)
 * August Lock Pro without a bridge (Doorbell or Connect)
-* August Doorbell with without August Lock
 
 Note about the August Pro: The August Pro is a ZWave compatible lock that works directly with Indigo without the need for this plugin.  I have one myself, and have tested this configuration.  This is the best configuration in my opinion, as it eliminates the communication to and from the cloud to lock, unlock, and validate status of the lock.  For August Pro users, this plugin adds support for events including Lock by Person, Unlock by Person.  Also, you will still be able to delegate the Auto-Lock and Auto-Unlock to Indigo rather than depending on the August App (See features for more information).
 
