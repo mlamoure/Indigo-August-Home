@@ -25,9 +25,28 @@
 	<Device type="relay" id="augLock">
 		<Name>August Smart Lock</Name>
 		<ConfigUI>
+
+			<Field id="augustInstruction" type="label" fontColor="darkgray" fontSize="small" alignWithControl="false">
+				<Label>
+					Select your lock from the list below.  If no locks appear, you have not set up your lock correctly using the August app, or you do not have a August supported bridge such as a August Doorbell or August Connect.  A bridge is required to use this plugin.
+				</Label>
+			</Field>
+
 			<Field type="menu" id="lockID">
-				<Label>Lock:</Label>
+				<Label>Lock device from August app (required):</Label>
 				<List class="self" method="availableLocks"/>
+			</Field>
+
+
+			<Field id="augustProInstruction" type="label" fontColor="darkgray" fontSize="small" alignWithControl="false">
+				<Label>
+					August Pro users only: Select your ZWave lock from the list below.  Doing so will calculate your locked_minutes and unlocked_minutes to the ZWave lock, rather than using the information from the cloud.  If you do not have a August Pro, select none from this list.
+				</Label>
+			</Field>
+
+			<Field type="menu" id="linkLockID">
+				<Label>Link to Z-wave lock (optional):</Label>
+				<List class="self" method="availableLinklocks" />
 			</Field>
 
 		</ConfigUI>

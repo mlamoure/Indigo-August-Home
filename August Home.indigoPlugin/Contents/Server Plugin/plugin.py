@@ -780,6 +780,23 @@ class Plugin(indigo.PluginBase):
 		self.authenticate(valuesDict['txtLogin'], valuesDict['txtPassword'], valuesDict['ddlLoginMethod'])
 		return self.updateConfig(valuesDict)
 
+	def availableLinklocks(self, filter="", valuesDict=None, typeId="", targetId=0):
+		locks_list = []
+
+		for dev in indigo.devices:
+			if dev.ownerProps.get("IsLockSubType", False):
+				found = False
+				for cloudLock in [s for s in indigo.devices.iter(filter="self")]:
+					if dev.id == cloudLock.id:
+						found = True
+						break
+
+				if not found:
+					locks_list.append((dev.id, dev.name))
+
+		locks_list.append((-1, "none"))
+		return locks_list
+
 	def availableLocks(self, filter="", valuesDict=None, typeId="", targetId=0):
 		locks = self.getLocks()
 		locks_list = []
@@ -798,6 +815,8 @@ class Plugin(indigo.PluginBase):
 		
 		if dev and dev.configured:
 			locks_list.append((dev.pluginProps["lockID"], dev.name))
+
+#		locks_list.append((-1, "lock is not cloud enabled"))
 
 		return locks_list
 
@@ -858,6 +877,7 @@ class Plugin(indigo.PluginBase):
 						# As it turns out, August will sometimes retro-actively add items, though unusual.  The plugin can deal with the out of order events.
 						continue
 					else:
+						self.logger.debug("processing activity item: " + str(serverActivityItem))
 						activityID = serverActivityItem["dateTime"]
 						deviceName = serverActivityItem["deviceName"]
 						deviceType = serverActivityItem["deviceType"]
@@ -882,6 +902,8 @@ class Plugin(indigo.PluginBase):
 							elif 'agent' in serverActivityItem["info"]:
 								if serverActivityItem["info"]["agent"] == "homekit":
 									via = "via HomeKit"
+								elif serverActivityItem["info"]["agent"] == "zwave":
+									via = "via ZWave"
 								elif serverActivityItem["info"]["agent"] == "mercury":
 									if action == "onetouchlock":
 										via = ""
@@ -891,7 +913,6 @@ class Plugin(indigo.PluginBase):
 								via = ""
 							elif callingUser != "manually" and 'mechanical' in serverActivityItem["info"]:
 								via = "via August app"
-
 
 						activityItemList.insert(0+newItemCount, AugustActivityItem(activityID, deviceName, deviceType, action, deviceID, dateTime, callingUser, via, initial_load))
 						newItemCount += 1
@@ -962,7 +983,9 @@ class Plugin(indigo.PluginBase):
 										indigo.server.log(u"received \"" + dev.name + "\" was Auto-Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")									
 									elif activityItem.action == "addedpin":
 										indigo.server.log(u"received \"" + dev.name + "\" PIN Code was added for a new user (ignored).")
-										break										
+										break
+									elif activityItem.via == "via ZWave":
+										indigo.server.log(u"received \"" + dev.name + "\" was " + activityItem.action + "ed at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
 									else:
 										indigo.server.log(u"received \"" + dev.name + "\" was " + activityItem.action + "ed " + activityItem.callingUser + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
 
@@ -1148,19 +1171,36 @@ class Plugin(indigo.PluginBase):
 				deviceTimeLocked = 0
 				deviceTimeUnlocked = 0
 
-				if dev.onState:
+				locked = dev.onState
+				linkedLock = False
+
+				try:
+					if dev.props["linkLockID"] != -1:
+						linkLock = True
+						locked = indigo.devices[dev.props["linkLockID"]].onState
+				except:
+					linkLock = False
+
+				if locked:
 					deviceTimeUnlocked = 0
-					try:
-						deviceTimeLocked = datetime.datetime.now() - datetime.datetime.strptime(dev.states["lastStateChangeTime"], "%Y-%m-%d %H:%M:%S")
-					except:
-						deviceTimeLocked = 0
+
+					if linkLock:
+							deviceTimeLocked = datetime.datetime.now() - indigo.devices[dev.props["linkLockID"]].lastChanged
+					else:
+						try:
+							deviceTimeLocked = datetime.datetime.now() - datetime.datetime.strptime(dev.states["lastStateChangeTime"], "%Y-%m-%d %H:%M:%S")
+						except:
+							deviceTimeLocked = 0
 				elif not dev.onState:
-					try:
-						deviceTimeUnlocked = datetime.datetime.now() - datetime.datetime.strptime(dev.states["lastStateChangeTime"], "%Y-%m-%d %H:%M:%S")
-					except:
-						deviceTimeUnlocked = 0
-		
 					deviceTimeLocked = 0
+
+					if linkLock:
+							deviceTimeUnlocked = datetime.datetime.now() - indigo.devices[dev.props["linkLockID"]].lastChanged
+					else:
+						try:
+							deviceTimeUnlocked = datetime.datetime.now() - datetime.datetime.strptime(dev.states["lastStateChangeTime"], "%Y-%m-%d %H:%M:%S")
+						except:
+							deviceTimeUnlocked = 0
 
 				varName = dev.name.replace(' ', '_') + "_locked_minutes"
 				if type(deviceTimeLocked) is datetime.timedelta:

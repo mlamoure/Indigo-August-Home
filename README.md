@@ -1,13 +1,29 @@
 Indigo (http://www.indigodomo.com) plugin for August Smart Locks and Doorbell
 
 # Requirements #
-In addition to the August Lock, you will need either a August Doorbell or August Connect (untested, as I don't have one) in order for the plugin to work. Without one of these items, the August servers don't know the status of your lock and cannot control it remotely.  The keypad is optional but supported.
 
-NOTE: This plugin is untested for the Augsut Pro with Connect.  The August Pro should work directly with Indigo as it is Z-Wave compatible.  This is a more reliable way of reciving updates from your lock, removing the cloud as a middle-man.  Indigo could then act as a substitute for the Connect, giving remote access abilities.
+Configurations supported:
+* August Lock with August Doorbell
+* August Lock Pro with Doorbell 
+* All of the above, with addition of August Keypad
+
+Configurations supported (and will likely work), but untested:
+* August Lock with August Connect
+* August Lock Pro with Connect
+
+Please report on the forums if you have problems with, or are working successful with these configurations.
+
+Configurations unsupported:
+* August Lock without a bridge (Doorbell or Connect)
+* August Lock Pro without a bridge (Doorbell or Connect)
+* August Doorbell with without August Lock
+
+Note about the August Pro: The August Pro is a ZWave compatible lock that works directly with Indigo without the need for this plugin.  I have one myself, and have tested this configuration.  This is the best configuration in my opinion, as it eliminates the communication to and from the cloud to lock, unlock, and validate status of the lock.  For August Pro users, this plugin adds support for events including Lock by Person, Unlock by Person.  Also, you will still be able to delegate the Auto-Lock and Auto-Unlock to Indigo rather than depending on the August App (See features for more information).
 
 # Features #
-* Supports the Indigo lock device type with the typical states - Lock, Unlock, Status Requests, and even Battery Level.  The intent is to give you the tools to delegate the "Auto Lock" functionality of the August to Indigo.  This way, as an example, you can tweak the behavior of the auto lock (such as not locking the door every 3 minutes) to instead base this behavior on a combination of other data - such as house presence.
+* Supports the Indigo lock device type with the typical states - Lock, Unlock, Status Requests, and even Battery Level.  
 * Uses the August cloud API's to control your lock, rather than bluetooth.  The bluetooth control is very hard to set up and control.
+* Timer states for the amount of time that your lock has been unlocked or locked, allowing you fully delegate the auto lock and auto unlock features from August to Indigo.  This way, as an example, you can tweak the behavior of the auto lock (such as not locking the door blindly every 3 minutes) to instead base this behavior on a combination of other data - such as house presence.
 * Supports the use of the August doorbell as a bridge.  Once a lock that is using the doorbell as a bridge is set up, you will also receive doorbell events (motion, missed calls) in Indigo and can configure triggers.  You do not need to set up the doorbell in Indigo as a separate device for this to happen.
 * Supports "via XXXX" in the Indigo event log to see how the lock state was changed from outside of Indigo (August App, August App Remote, HomeKit, Manually, August Keypad).
 * Supports the August keypad.
@@ -45,12 +61,3 @@ NOTE: This plugin is untested for the Augsut Pro with Connect.  The August Pro s
 # Limitations #
 * The plugin works based on polling the August servers for updates to the lock status and your house activity feed.  The plugin supports 10, 15, 30, 45, 60, 90 second polling intervals.  At this time there does not seem to be any better way to receive updates as they happen.  The house feed provides more information, but sometimes is lagged because of the way the August devices work.  Therefore, the plugin will prefer the house activity feed but periodically check the status API for sanity.  Given that the activity feed is the only source for doorbell events, such as motion detected, missed calls, etc., there can be a lag for these events to be discovered by the plugin.  Because of this, I've added maximum latency fields to the event triggers.
 * Sending lock and unlock commands from Indigo can occasionally have a lag, sometimes up to 20 seconds.  I've seen this happen while manually triggering the API's, so it has nothing to do with the plugin.  The plugin has a long timeout period, but sometimes failures do happen.  I'm guessing it has to do with August's servers connecting to the bridge which connects to the lock, the round trip can take time.  I recommend creating sanity triggers or schedules to ensure that a lock takes place successfully.
-
-# Untested but supported #
-Please report on the Indigo forums if you have any problems with theses configurations, or if you have tested sucessfully so that I can mark them complete:
-
-* Doorbell without a lock
-* Multiple locks
-* Multiple houses
-* August connect as a bridge
-* August Pro
