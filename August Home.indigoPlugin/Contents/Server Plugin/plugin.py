@@ -13,7 +13,7 @@ import json
 import uuid
 from distutils.version import LooseVersion
 
-API_KEY = "727dba56-fe45-498d-b4aa-293f96aae0e5"
+API_KEY = "79fd0eb6-381d-4adf-95a0-47721289d1d9"
 CONTENT_TYPE = "application/json"
 USER_AGENT = "August/Luna-3.2.2"
 ACCEPT_VERSION = "0.0.1"
