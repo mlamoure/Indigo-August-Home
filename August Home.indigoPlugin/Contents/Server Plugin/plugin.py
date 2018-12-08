@@ -1163,10 +1163,10 @@ class Plugin(indigo.PluginBase):
 				had_errors = True
 
 		for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled and s.deviceTypeId == "augDoor"]:
-			serverState = self.getDoorStatus(indigo.devices[int(props["lockID"])].pluginProps["lockID"])
+			serverState = self.getDoorStatus(indigo.devices[int(dev.pluginProps["lockID"])].pluginProps["lockID"])
 
 			if serverState is not None:
-				if dev.onOffState != serverState:
+				if dev.onState != serverState:
 					dev.updateStateOnServer('onOffState', value=serverState)
 			else:
 				had_errors = True
@@ -1221,7 +1221,6 @@ class Plugin(indigo.PluginBase):
 	
 					if not varName in indigo.variables:
 						indigo.variable.create(varName,folder=self.indigoVariablesFolderID)
-
 
 		else:
 			self.createVariableFolder(self.indigoVariablesFolderName)
