@@ -4,7 +4,7 @@ Indigo (http://www.indigodomo.com) plugin for August Smart Locks and Doorbell
 
 Configurations supported:
 * August Lock with August Doorbell
-* August Lock Pro with Doorbell 
+* August Lock Pro (now supports DoorSense as well) with Doorbell 
 * All of the above, with addition of August Keypad
 
 Configurations supported (and will likely work), but untested:
@@ -23,6 +23,7 @@ Note about the August Pro: The August Pro is a ZWave compatible lock that works 
 # Features #
 * Supports the Indigo lock device type with the typical states - Lock, Unlock, Status Requests, and even Battery Level.  
 * Uses the August cloud API's to control your lock, rather than bluetooth.  The bluetooth control is very hard to set up and control.
+* Supports a seperate device for the August Pro DoorSense.  The DoorSense status (whether the door is opened or closed) is recorded and available to use in triggers and conditions.
 * Timer states for the amount of time that your lock has been unlocked or locked, allowing you fully delegate the auto lock and auto unlock features from August to Indigo.  This way, as an example, you can tweak the behavior of the auto lock (such as not locking the door blindly every 3 minutes) to instead base this behavior on a combination of other data - such as house presence.
 * Supports the use of the August doorbell as a bridge.  Once a lock that is using the doorbell as a bridge is set up, you will also receive doorbell events (motion, missed calls) in Indigo and can configure triggers.  You do not need to set up the doorbell in Indigo as a separate device for this to happen.
 * Supports "via XXXX" in the Indigo event log to see how the lock state was changed from outside of Indigo (August App, August App Remote, HomeKit, Manually, August Keypad).

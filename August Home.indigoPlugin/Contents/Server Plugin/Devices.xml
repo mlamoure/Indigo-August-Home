@@ -73,4 +73,23 @@
 			    </State>
     	</States>
 	</Device>
+	<Device type="relay" id="augDoor">
+		<Name>August Smart Lock DoorSense</Name>
+		<ConfigUI>
+
+			<Field id="augustInstruction" type="label" fontColor="darkgray" fontSize="small" alignWithControl="false">
+				<Label>
+					Select your August lock from the list below.  This must be a pro lock with the DoorSense enabled.
+				</Label>
+			</Field>
+
+			<Field type="menu" id="lockID">
+				<Label>Lock device from August app (required):</Label>
+				<List class="self" method="myLocks"/>
+			</Field>
+
+		</ConfigUI>
+		<States>
+    	</States>
+	</Device>
 </Devices>

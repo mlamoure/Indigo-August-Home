@@ -104,7 +104,6 @@ class Plugin(indigo.PluginBase):
 
 			self.version_check()
 
-
 	def configureDoorbells(self):
 		db_list = self.getDoorbells()	
 		self.has_doorbell = len(db_list) > 0
@@ -219,7 +218,7 @@ class Plugin(indigo.PluginBase):
 		self.house_list = []
 		self.has_lock = False
 
-		for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
+		for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled and s.deviceTypeId == "augLock"]:
 			self.has_lock = True
 			found = False
 			for houseID, houseName, activityItemList in self.house_list:
@@ -241,56 +240,62 @@ class Plugin(indigo.PluginBase):
 	# we need the device to have, and to cleanup old properties.
 	def deviceStartComm(self, dev):
 		self.debugLog(u"deviceStartComm: %s" % (dev.name,))
-
 		props = dev.pluginProps
-		propsChanged = False
 
-		if not "lockID" in props:
-			self.logger.error("August device '{}' configured with unknown Lock ID. Reconfigure the device to make it active.".format(dev.name))
-			props["configured"] = False
-			dev.replacePluginPropsOnServer(props)			
-			return
+		if dev.deviceTypeId == "augLock":
+			propsChanged = False
 
-		self.has_lock = True
+			if not "lockID" in props:
+				self.logger.error("August device '{}' configured with unknown Lock ID. Reconfigure the device to make it active.".format(dev.name))
+				props["configured"] = False
+				dev.replacePluginPropsOnServer(props)			
+				return
 
-		if not "IsLockSubType" in props:
-			props["IsLockSubType"] = True
-			propsChanged = True
-		elif not props["IsLockSubType"]:
-			props["IsLockSubType"] = True
-			propsChanged = True
+			self.has_lock = True
 
-		if not "SupportsBatteryLevel" in props:		
-			props["SupportsBatteryLevel"] = True
-			propsChanged = True
-		elif not props["IsLockSubType"]:
-			props["SupportsBatteryLevel"] = True
-			propsChanged = True
+			if not "IsLockSubType" in props:
+				props["IsLockSubType"] = True
+				propsChanged = True
+			elif not props["IsLockSubType"]:
+				props["IsLockSubType"] = True
+				propsChanged = True
 
-		if not "houseID" in props or not "houseName" in props:
-			house = self.getLockDetails(props["lockID"])
-			props["houseID"] = house["HouseID"]
-			props["houseName"] = house["HouseName"]
-			propsChanged = True
+			if not "SupportsBatteryLevel" in props:		
+				props["SupportsBatteryLevel"] = True
+				propsChanged = True
+			elif not props["IsLockSubType"]:
+				props["SupportsBatteryLevel"] = True
+				propsChanged = True
+
+			if not "houseID" in props or not "houseName" in props:
+				house = self.getLockDetails(props["lockID"])
+				props["houseID"] = house["HouseID"]
+				props["houseName"] = house["HouseName"]
+				propsChanged = True
+				
+			if "SupportsColor" in props:
+				del props["SupportsColor"]
+				propsChanged = True
+
+			props["configured"] = "houseID" in props and "houseName" in props
+
+			if propsChanged:
+				dev.replacePluginPropsOnServer(props)
 			
-		if "SupportsColor" in props:
-			del props["SupportsColor"]
-			propsChanged = True
+			if props["configured"]:
+				serverState = self.getLockStatus(props["lockID"])
 
-		props["configured"] = "houseID" in props and "houseName" in props
+				if serverState is not None:
+					dev.updateStateOnServer('onOffState', value=serverState)
+				else:
+					self.forceServerRefresh = True
 
-		if propsChanged:
-			dev.replacePluginPropsOnServer(props)
-		
-		if props["configured"]:
-			serverState = self.getLockStatus(props["lockID"])
+				self.resetHouseList()
+		elif dev.deviceTypeId == "augDoor":
+			serverState = self.getDoorStatus(indigo.devices[int(props["lockID"])].pluginProps["lockID"])
 
 			if serverState is not None:
 				dev.updateStateOnServer('onOffState', value=serverState)
-			else:
-				self.forceServerRefresh = True
-
-			self.resetHouseList()
 
 
 	########################################
@@ -301,6 +306,9 @@ class Plugin(indigo.PluginBase):
 	# Relay / Dimmer Action callback
 	######################
 	def actionControlDevice(self, action, dev):
+		if dev.deviceTypeId == "augDoor":
+			return
+
 		props = dev.pluginProps
 
 		actionstr = "unknown"
@@ -615,7 +623,7 @@ class Plugin(indigo.PluginBase):
 			)
 			self.logger.debug('Response HTTP Status Code: {status_code}'.format(
 				status_code=response.status_code))
-			self.logger.debug('Response HTTP Response Body: {content}'.format(
+			self.logger.debug('getLocks Response HTTP Response Body: {content}'.format(
 				content=response.content))
 		except requests.exceptions.RequestException:
 			self.logger.error('HTTP Request failed')
@@ -639,7 +647,7 @@ class Plugin(indigo.PluginBase):
 				},
 			)
 
-			self.logger.debug('Response HTTP Response Body: {content}'.format(
+			self.logger.debug('getLockDetails Response HTTP Response Body: {content}'.format(
 				content=response.content))
 
 			if response.status_code != 200:
@@ -670,15 +678,47 @@ class Plugin(indigo.PluginBase):
 				}, timeout=TIMEOUT_GET,
 			)
 
-			self.logger.debug('Response HTTP Status Code: {status_code}'.format(
+			self.logger.debug('getLockStatus Response HTTP Status Code: {status_code}'.format(
 				status_code=response.status_code))
-			self.logger.debug('Response HTTP Response Body: {content}'.format(
+			self.logger.debug('getLockStatus Response HTTP Response Body: {content}'.format(
 				content=response.content))
 
 			if response.status_code != 200:
 				return None
 
 			return response.json()["status"] == "locked"
+
+		except requests.exceptions.RequestException:
+			self.logger.error('HTTP Request failed')
+
+		return None
+
+	def getDoorStatus(self, lockID):
+		# Get Lock Status
+		# GET https://api-production.august.com/locks/<LOCK_ID>/status
+
+		try:
+			response = requests.get(
+				url="https://api-production.august.com/locks/" + lockID + "/status",
+				headers={
+					"x-august-access-token": self.access_token,
+					"Accept-Version": ACCEPT_VERSION,
+					"x-august-api-key": API_KEY,
+					"x-kease-api-key": API_KEY,
+					"Content-Type": CONTENT_TYPE,
+					"User-Agent": USER_AGENT,
+				}, timeout=TIMEOUT_GET,
+			)
+
+			self.logger.debug('getLockStatus Response HTTP Status Code: {status_code}'.format(
+				status_code=response.status_code))
+			self.logger.debug('getLockStatus Response HTTP Response Body: {content}'.format(
+				content=response.content))
+
+			if response.status_code != 200:
+				return None
+
+			return response.json()["doorState"] == "open"
 
 		except requests.exceptions.RequestException:
 			self.logger.error('HTTP Request failed')
@@ -786,7 +826,7 @@ class Plugin(indigo.PluginBase):
 		for dev in indigo.devices:
 			if dev.ownerProps.get("IsLockSubType", False):
 				found = False
-				for cloudLock in [s for s in indigo.devices.iter(filter="self")]:
+				for cloudLock in [s for s in indigo.devices.iter(filter="self") if s.deviceTypeId == "augLock"]:
 					if dev.id == cloudLock.id:
 						found = True
 						break
@@ -797,6 +837,16 @@ class Plugin(indigo.PluginBase):
 		locks_list.append((-1, "none"))
 		return locks_list
 
+	def myLocks(self, filter=u'', valuesDict=None, typeId=u'', targetId=0):
+		myLocks = []
+		for lock in [s for s in indigo.devices.iter(filter="self.augLock") if s.enabled]:
+			value = lock.id
+			text = lock.name
+
+			myLocks.append((value, text))
+
+		return myLocks
+
 	def availableLocks(self, filter="", valuesDict=None, typeId="", targetId=0):
 		locks = self.getLocks()
 		locks_list = []
@@ -806,7 +856,7 @@ class Plugin(indigo.PluginBase):
 		if self.configStatus:
 			for key, value in locks.items():
 				found = False
-				for existing_dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
+				for existing_dev in [s for s in indigo.devices.iter(filter="self") if s.enabled and s.deviceTypeId == "augLock"]:
 					if key == existing_dev.pluginProps["lockID"]:
 						found = True
 	
@@ -944,7 +994,7 @@ class Plugin(indigo.PluginBase):
 						self.logger.debug("Evaluating an activity log that occured " + str(int(delta_time.total_seconds())) + " seconds ago, " + str(refresh_delta_time.total_seconds()) + " seconds since last refresh (" + self.lastServerRefresh.strftime('%Y-%m-%d %H:%M:%S.%f') + "), at: " + activityItem.dateTime.strftime('%Y-%m-%d %H:%M:%S.%f %Z'))
 
 						if activityItem.deviceType == "lock":
-							for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
+							for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled and s.deviceTypeId == "augLock"]:
 								if dev.pluginProps["lockID"] == activityItem.deviceID:
 
 									# Process Invalid Code
@@ -979,6 +1029,20 @@ class Plugin(indigo.PluginBase):
 
 									if activityItem.action == "onetouchlock":
 										indigo.server.log(u"received \"" + dev.name + "\" was One-Touch Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
+									elif activityItem.action == "doorclosed" or activityItem.action == "dooropen":
+
+										# Update the state of the DoorSense Lock if it's set up.
+										for door in [s for s in indigo.devices.iter(filter="self.augDoor") if s.enabled]:
+											if int(door.pluginProps["lockID"]) == int(dev.id):
+												self.logger.debug("matched a door device '" + door.name + "' to the lock '" + dev.name + "'")
+												door.updateStateOnServer('onOffState', value=(activityItem.action == "dooropen"))
+												break
+
+										if activityItem.action == "doorclosed":
+											indigo.server.log(u"received \"" + dev.name + "\" door was closed at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) ")
+										else:		
+											indigo.server.log(u"received \"" + dev.name + "\" door was opened at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) ")
+									
 									elif activityItem.callingUser == "by Auto Relock":
 										indigo.server.log(u"received \"" + dev.name + "\" was Auto-Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")									
 									elif activityItem.action == "addedpin":
@@ -1070,13 +1134,13 @@ class Plugin(indigo.PluginBase):
 
 			self.lastServerRefresh = datetime.datetime.now()
 
-
 	def update_all_from_august(self):
 		had_errors = False
 
-		for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
+		for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled and s.deviceTypeId == "augLock"]:
 			lockDetails = self.getLockDetails(dev.pluginProps["lockID"])
 			serverState = lockDetails["LockStatus"]["status"] == "locked"
+
 			self.logger.debug("Server state for " + dev.name + " is " + str(serverState))
 
 			batteryLevel = int(100*lockDetails["battery"])
@@ -1095,6 +1159,15 @@ class Plugin(indigo.PluginBase):
 					
 					# Update a timestamp of the last time the device was updated
 					dev.updateStateOnServer("lastStateChangeTime", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+			else:
+				had_errors = True
+
+		for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled and s.deviceTypeId == "augDoor"]:
+			serverState = self.getDoorStatus(indigo.devices[int(props["lockID"])].pluginProps["lockID"])
+
+			if serverState is not None:
+				if dev.onOffState != serverState:
+					dev.updateStateOnServer('onOffState', value=serverState)
 			else:
 				had_errors = True
 
@@ -1131,7 +1204,7 @@ class Plugin(indigo.PluginBase):
 
 	def createVariables(self):
 		if self.indigoVariablesFolderID is not None:
-			for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
+			for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled and s.deviceTypeId == "augLock"]:
 				varName = dev.name.replace(' ', '_') + "_locked_minutes"
 				if not varName in indigo.variables:
 					indigo.variable.create(varName,folder=self.indigoVariablesFolderID)
@@ -1167,7 +1240,7 @@ class Plugin(indigo.PluginBase):
 						self.createVariables()
 						indigo.variable.updateValue(varName, str(int(last_doorbell_motion_since.total_seconds() // 60)))
 
-			for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled]:
+			for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled and s.deviceTypeId == "augLock"]:
 				deviceTimeLocked = 0
 				deviceTimeUnlocked = 0
 
