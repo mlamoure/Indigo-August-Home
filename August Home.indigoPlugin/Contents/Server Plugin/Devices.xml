@@ -73,7 +73,7 @@
 			    </State>
     	</States>
 	</Device>
-	<Device type="relay" id="augDoor">
+	<Device type="sensor" id="augDoor">
 		<Name>August Smart Lock DoorSense</Name>
 		<ConfigUI>
 

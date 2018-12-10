@@ -364,7 +364,7 @@ class Plugin(indigo.PluginBase):
 	def actionControlUniversal(self, action, dev):
 
 		###### STATUS REQUEST ######
-		if action.deviceAction == indigo.kUniversalAction.RequestStatus:
+		if action.deviceAction == indigo.kUniversalAction.RequestStatus and dev.deviceTypeId == "augLock":
 			if self.has_doorbell:
 				for doorbellID, doorbellName in self.doorbell_list:
 					self.wakeup(doorbellID)
@@ -394,7 +394,14 @@ class Plugin(indigo.PluginBase):
 			else:
 				indigo.server.log("Had errors while refreshing status from August, will try again in " + str(self.pollingInterval) + " seconds")
 				self.forceServerRefresh = True
+		elif action.deviceAction == indigo.kUniversalAction.RequestStatus and dev.deviceTypeId == "augDoor":
+			serverState = self.getDoorStatus(indigo.devices[int(dev.pluginProps["lockID"])].pluginProps["lockID"])
 
+			if serverState is not None:
+				if dev.onState != serverState:
+					dev.updateStateOnServer('onOffState', value=serverState)
+			else:
+				self.forceServerRefresh = True
 
 	########################################
 	# Custom Plugin Functions
@@ -710,9 +717,9 @@ class Plugin(indigo.PluginBase):
 				}, timeout=TIMEOUT_GET,
 			)
 
-			self.logger.debug('getLockStatus Response HTTP Status Code: {status_code}'.format(
+			self.logger.debug('getDoorStatus Response HTTP Status Code: {status_code}'.format(
 				status_code=response.status_code))
-			self.logger.debug('getLockStatus Response HTTP Response Body: {content}'.format(
+			self.logger.debug('getDoorStatus Response HTTP Response Body: {content}'.format(
 				content=response.content))
 
 			if response.status_code != 200:
