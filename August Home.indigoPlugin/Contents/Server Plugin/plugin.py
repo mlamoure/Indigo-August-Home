@@ -1010,6 +1010,10 @@ class Plugin(indigo.PluginBase):
 
 										# Process any Invalid code triggers
 										for trigger in indigo.triggers.iter("self.invalidCode"):
+
+											if not trigger.enabled:
+												continue
+
 											self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
 											if int(delta_time.total_seconds()) <= int(trigger.pluginProps["maxLatency"]):
 												indigo.trigger.execute(trigger)
@@ -1052,8 +1056,8 @@ class Plugin(indigo.PluginBase):
 									
 									elif activityItem.callingUser == "by Auto Relock":
 										indigo.server.log(u"received \"" + dev.name + "\" was Auto-Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")									
-									elif activityItem.action == "addedpin":
-										indigo.server.log(u"received \"" + dev.name + "\" PIN Code was added for a new user (ignored).")
+									elif activityItem.action == "addedpin" or "removedpined":
+										indigo.server.log(u"received \"" + dev.name + "\" PIN Code was added or removed for a user (ignored).")
 										break
 									elif activityItem.via == "via ZWave":
 										indigo.server.log(u"received \"" + dev.name + "\" was " + activityItem.action + "ed at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
@@ -1074,6 +1078,10 @@ class Plugin(indigo.PluginBase):
 
 							# PROCESS LOCK TRIGGERS
 							for trigger in indigo.triggers.iter("self.lockByPerson"):
+
+								if not trigger.enabled:
+									continue 
+
 								self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
 								try:
 									if int(delta_time.total_seconds()) <= int(trigger.pluginProps["maxLatency"]):
@@ -1091,6 +1099,10 @@ class Plugin(indigo.PluginBase):
 									self.logger.debug("   error while processing trigger: " + str(e))								
 
 							for trigger in indigo.triggers.iter("self.lockByUnknownPerson"):
+
+								if not trigger.enabled:
+									continue
+
 								self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
 								try:
 									if int(delta_time.total_seconds()) <= int(trigger.pluginProps["maxLatency"]):
@@ -1118,6 +1130,10 @@ class Plugin(indigo.PluginBase):
 
 								# PROCESS DOORBELL TRIGGERS
 								for trigger in indigo.triggers.iter("self.doorbellMotion"):
+
+									if not trigger.enabled:
+										continue
+
 									self.logger.debug("Checking if trigger: \"" + trigger.name + "\" has occured. Max latency: " + str(trigger.pluginProps["maxLatency"]) + ", Event delta: " + str(delta_time.total_seconds()))
 									if delta_time.total_seconds() <= int(trigger.pluginProps["maxLatency"]):
 										if trigger.pluginProps["eventType"] == "any":
