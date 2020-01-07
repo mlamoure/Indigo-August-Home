@@ -1056,7 +1056,7 @@ class Plugin(indigo.PluginBase):
 									
 									elif activityItem.callingUser == "by Auto Relock":
 										indigo.server.log(u"received \"" + dev.name + "\" was Auto-Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")									
-									elif activityItem.action == "addedpin" or "removedpined":
+									elif activityItem.action == "addedpin" or activityItem.action == "removedpined":
 										indigo.server.log(u"received \"" + dev.name + "\" PIN Code was added or removed for a user (ignored).")
 										break
 									elif activityItem.via == "via ZWave":
