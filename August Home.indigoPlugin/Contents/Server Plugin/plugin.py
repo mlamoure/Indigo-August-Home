@@ -271,6 +271,12 @@ class Plugin(indigo.PluginBase):
 				house = self.getLockDetails(props["lockID"])
 				props["houseID"] = house["HouseID"]
 				props["houseName"] = house["HouseName"]
+
+				batteryLevel = int(100*lockDetails["battery"])
+				batteryLevelStr = u"%d%%" % (int(batteryLevel))
+				props["batteryLevel"] = batteryLevel
+				props["batteryLevelStr"] = batteryLevelStr
+
 				propsChanged = True
 				
 			if "SupportsColor" in props:
@@ -399,6 +405,11 @@ class Plugin(indigo.PluginBase):
 
 			if serverState is not None:
 				if dev.onState != serverState:
+					if serverState:
+							indigo.server.log(u"received \"" + dev.name + "\" was opened")
+					else:
+							indigo.server.log(u"received \"" + dev.name + "\" was closed")
+
 					dev.updateStateOnServer('onOffState', value=serverState)
 			else:
 				self.forceServerRefresh = True
@@ -638,7 +649,7 @@ class Plugin(indigo.PluginBase):
 		return json.loads(response.content)
 
 	def getLockDetails(self, lockID):
-		# Get Lock Status
+		# Get Lock Detail
 		# GET https://api-production.august.com/locks/<LOCK_ID>/
 
 		try:
@@ -668,7 +679,7 @@ class Plugin(indigo.PluginBase):
 		except requests.exceptions.RequestException:
 			self.logger.error('HTTP Request failed')
 
-	def getLockStatus(self, lockID):
+	def getLockStatus(self, lockID, full_response = False):
 		# Get Lock Status
 		# GET https://api-production.august.com/locks/<LOCK_ID>/status
 
@@ -693,6 +704,9 @@ class Plugin(indigo.PluginBase):
 			if response.status_code != 200:
 				return None
 
+			if full_response:
+				return response.json()
+
 			return response.json()["status"] == "locked"
 
 		except requests.exceptions.RequestException:
@@ -701,7 +715,8 @@ class Plugin(indigo.PluginBase):
 		return None
 
 	def getDoorStatus(self, lockID):
-		# Get Lock Status
+		# Get Door Status
+		# DEPRECIATING THIS in favor of using getLockStatus and reducing the number of API calls
 		# GET https://api-production.august.com/locks/<LOCK_ID>/status
 
 		try:
@@ -1161,14 +1176,18 @@ class Plugin(indigo.PluginBase):
 		had_errors = False
 
 		for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled and s.deviceTypeId == "augLock"]:
-			lockDetails = self.getLockDetails(dev.pluginProps["lockID"])
-			serverState = lockDetails["LockStatus"]["status"] == "locked"
+			lock_id = dev.pluginProps["lockID"]
+			lockStatus = self.getLockStatus(lock_id, True)
+
+			serverState = lockStatus["status"] == "locked"
 
 			self.logger.debug("Server state for " + dev.name + " is " + str(serverState))
 
-			batteryLevel = int(100*lockDetails["battery"])
-			batteryLevelStr = u"%d%%" % (int(batteryLevel))
-			dev.updateStateOnServer('batteryLevel', batteryLevel, uiValue=batteryLevelStr)
+#			Removed as we moved to the Lock Status method, which does not include battery.  Lock Details will need to be polled elsewhere
+
+#			batteryLevel = int(100*lockDetails["battery"])
+#			batteryLevelStr = u"%d%%" % (int(batteryLevel))
+#			dev.updateStateOnServer('batteryLevel', batteryLevel, uiValue=batteryLevelStr)
 
 			if serverState is not None:
 				if dev.onState != serverState:
@@ -1185,14 +1204,15 @@ class Plugin(indigo.PluginBase):
 			else:
 				had_errors = True
 
-		for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled and s.deviceTypeId == "augDoor"]:
-			serverState = self.getDoorStatus(indigo.devices[int(dev.pluginProps["lockID"])].pluginProps["lockID"])
+			# loop through any doors associated with the lock
+			for dev in [s for s in indigo.devices.iter(filter="self") if s.enabled and s.deviceTypeId == "augDoor" and s.pluginProps["lockID"] == lock_id]:
+				door_serverState = lockStatus["doorState"] == "open"
 
-			if serverState is not None:
-				if dev.onState != serverState:
-					dev.updateStateOnServer('onOffState', value=serverState)
-			else:
-				had_errors = True
+				if door_serverState is not None:
+					if dev.onState != door_serverState:
+						dev.updateStateOnServer('onOffState', value=door_serverState)
+				else:
+					had_errors = True
 
 		if had_errors:
 			indigo.server.log("Had errors while refreshing status from August, will try again in " + self.pollingInterval + " seconds")
