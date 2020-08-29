@@ -272,7 +272,7 @@ class Plugin(indigo.PluginBase):
 				props["houseID"] = house["HouseID"]
 				props["houseName"] = house["HouseName"]
 
-				batteryLevel = int(100*lockDetails["battery"])
+				batteryLevel = int(100*house["battery"])
 				batteryLevelStr = u"%d%%" % (int(batteryLevel))
 				props["batteryLevel"] = batteryLevel
 				props["batteryLevelStr"] = batteryLevelStr
