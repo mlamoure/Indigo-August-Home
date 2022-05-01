@@ -91,7 +91,7 @@ class Plugin(indigo.PluginBase):
 
 	########################################
 	def startup(self):
-		self.debugLog(u"startup called")
+		self.debugLog("startup called")
 
 		if self.configStatus:
 			if self.debug:
@@ -110,7 +110,7 @@ class Plugin(indigo.PluginBase):
 		self.doorbell_list = []
 
 		if self.has_doorbell:
-			for key, value in db_list.items():
+			for key, value in list(db_list.items()):
 	
 				self.doorbell_list.append((key, value["name"]))
 				self.logger.debug("Added doorbell " + value["name"] + " with ID " + key)
@@ -161,10 +161,10 @@ class Plugin(indigo.PluginBase):
 					)
 				)
 		except Exception as exc:
-			self.logger.error(unicode(exc))
+			self.logger.error(str(exc))
 
 	def shutdown(self):
-		self.debugLog(u"shutdown called")
+		self.debugLog("shutdown called")
 
 	def runConcurrentThread(self):
 		self.logger.debug("Starting concurrent tread")
@@ -239,7 +239,7 @@ class Plugin(indigo.PluginBase):
 	# UI settings dialog has been validated. This is a good place to force any properties
 	# we need the device to have, and to cleanup old properties.
 	def deviceStartComm(self, dev):
-		self.debugLog(u"deviceStartComm: %s" % (dev.name,))
+		self.debugLog("deviceStartComm: %s" % (dev.name,))
 		props = dev.pluginProps
 
 		if dev.deviceTypeId == "augLock":
@@ -273,7 +273,7 @@ class Plugin(indigo.PluginBase):
 				props["houseName"] = house["HouseName"]
 
 				batteryLevel = int(100*house["battery"])
-				batteryLevelStr = u"%d%%" % (int(batteryLevel))
+				batteryLevelStr = "%d%%" % (int(batteryLevel))
 				props["batteryLevel"] = batteryLevel
 				props["batteryLevelStr"] = batteryLevelStr
 
@@ -328,9 +328,9 @@ class Plugin(indigo.PluginBase):
 		if serverState is not None:
 			if dev.onState != serverState:
 				if serverState:
-						indigo.server.log(u"received \"" + dev.name + "\" was locked")
+						indigo.server.log("received \"" + dev.name + "\" was locked")
 				else:
-						indigo.server.log(u"received \"" + dev.name + "\" was unlocked")
+						indigo.server.log("received \"" + dev.name + "\" was unlocked")
 
 				dev.updateStateOnServer('onOffState', value=serverState)
 				self.logger.error("The state of the lock in Indigo was out of sync, " + dev.name + " was already " + actionstr + "ed")
@@ -341,13 +341,13 @@ class Plugin(indigo.PluginBase):
 			return
 
 		# Command hardware module (dev) to LOCK here:
-		indigo.server.log(u"sending \"%s\" %s" % (dev.name, actionstr))
+		indigo.server.log("sending \"%s\" %s" % (dev.name, actionstr))
 
 		sendSuccess = self.sendCommand(dev.pluginProps["lockID"], actionstr)
 
 		if sendSuccess:
 			# If success then log that the command was successfully sent.
-			indigo.server.log(u"sent \"%s\" %s" % (dev.name, actionstr))
+			indigo.server.log("sent \"%s\" %s" % (dev.name, actionstr))
 
 			# Update a timestamp of the last time the device was updated by Indigo
 			dev.updateStateOnServer("lastSentIndigoUpdateTime", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
@@ -360,7 +360,7 @@ class Plugin(indigo.PluginBase):
 
 		else:
 			# Else log failure but do NOT update state on Indigo Server.
-			self.logger.error(u"send \"%s\" %s failed" % (dev.name, actionstr))
+			self.logger.error("send \"%s\" %s failed" % (dev.name, actionstr))
 
 		self.updateVariables()
 
@@ -376,22 +376,22 @@ class Plugin(indigo.PluginBase):
 					self.wakeup(doorbellID)
 
 
-			indigo.server.log(u"sent \"%s\" %s" % (dev.name, "status request"))
+			indigo.server.log("sent \"%s\" %s" % (dev.name, "status request"))
 
 			lockDetails = self.getLockDetails(dev.pluginProps["lockID"])
 
 			serverState = lockDetails["LockStatus"]["status"] == "locked"
 
 			batteryLevel = int(100*lockDetails["battery"])
-			batteryLevelStr = u"%d%%" % (int(batteryLevel))
+			batteryLevelStr = "%d%%" % (int(batteryLevel))
 			dev.updateStateOnServer('batteryLevel', batteryLevel, uiValue=batteryLevelStr)
 
 			if serverState is not None:
 				if dev.onState != serverState:
 					if serverState:
-							indigo.server.log(u"received \"" + dev.name + "\" was locked")
+							indigo.server.log("received \"" + dev.name + "\" was locked")
 					else:
-							indigo.server.log(u"received \"" + dev.name + "\" was unlocked")
+							indigo.server.log("received \"" + dev.name + "\" was unlocked")
 
 					dev.updateStateOnServer('onOffState', value=serverState)
 
@@ -406,9 +406,9 @@ class Plugin(indigo.PluginBase):
 			if serverState is not None:
 				if dev.onState != serverState:
 					if serverState:
-							indigo.server.log(u"received \"" + dev.name + "\" was opened")
+							indigo.server.log("received \"" + dev.name + "\" was opened")
 					else:
-							indigo.server.log(u"received \"" + dev.name + "\" was closed")
+							indigo.server.log("received \"" + dev.name + "\" was closed")
 
 					dev.updateStateOnServer('onOffState', value=serverState)
 			else:
@@ -474,10 +474,10 @@ class Plugin(indigo.PluginBase):
 					"code": code
 				})
 			)
-			print('Response HTTP Status Code: {status_code}'.format(
-				status_code=response.status_code))
-			print('Response HTTP Response Body: {content}'.format(
-				content=response.content))
+			print(('Response HTTP Status Code: {status_code}'.format(
+				status_code=response.status_code)))
+			print(('Response HTTP Response Body: {content}'.format(
+				content=response.content)))
 		except requests.exceptions.RequestException:
 			print('HTTP Request failed')
 
@@ -503,10 +503,10 @@ class Plugin(indigo.PluginBase):
 					"code": code
 				})
 			)
-			print('Response HTTP Status Code: {status_code}'.format(
-				status_code=response.status_code))
-			print('Response HTTP Response Body: {content}'.format(
-				content=response.content))
+			print(('Response HTTP Status Code: {status_code}'.format(
+				status_code=response.status_code)))
+			print(('Response HTTP Response Body: {content}'.format(
+				content=response.content)))
 		except requests.exceptions.RequestException:
 			print('HTTP Request failed')
 
@@ -529,10 +529,10 @@ class Plugin(indigo.PluginBase):
 					"value": login
 				})
 			)
-			print('Response HTTP Status Code: {status_code}'.format(
-				status_code=response.status_code))
-			print('Response HTTP Response Body: {content}'.format(
-				content=response.content))
+			print(('Response HTTP Status Code: {status_code}'.format(
+				status_code=response.status_code)))
+			print(('Response HTTP Response Body: {content}'.format(
+				content=response.content)))
 		except requests.exceptions.RequestException:
 			print('HTTP Request failed')
 
@@ -557,10 +557,10 @@ class Plugin(indigo.PluginBase):
 					"value": login
 				})
 			)
-			print('Response HTTP Status Code: {status_code}'.format(
-				status_code=response.status_code))
-			print('Response HTTP Response Body: {content}'.format(
-				content=response.content))
+			print(('Response HTTP Status Code: {status_code}'.format(
+				status_code=response.status_code)))
+			print(('Response HTTP Response Body: {content}'.format(
+				content=response.content)))
 		except requests.exceptions.RequestException:
 			print('HTTP Request failed')
 
@@ -859,7 +859,7 @@ class Plugin(indigo.PluginBase):
 		locks_list.append((-1, "none"))
 		return locks_list
 
-	def myLocks(self, filter=u'', valuesDict=None, typeId=u'', targetId=0):
+	def myLocks(self, filter='', valuesDict=None, typeId='', targetId=0):
 		myLocks = []
 		for lock in [s for s in indigo.devices.iter(filter="self.augLock") if s.enabled]:
 			value = lock.id
@@ -876,7 +876,7 @@ class Plugin(indigo.PluginBase):
 		dev = indigo.devices.get(targetId, None)
 
 		if self.configStatus:
-			for key, value in locks.items():
+			for key, value in list(locks.items()):
 				found = False
 				for existing_dev in [s for s in indigo.devices.iter(filter="self") if s.enabled and s.deviceTypeId == "augLock"]:
 					if key == existing_dev.pluginProps["lockID"]:
@@ -1054,7 +1054,7 @@ class Plugin(indigo.PluginBase):
 										extraText = " (this event was delayed in the August activity log, so the Indigo lock state had already been updated.)"
 
 									if activityItem.action == "onetouchlock":
-										indigo.server.log(u"received \"" + dev.name + "\" was One-Touch Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
+										indigo.server.log("received \"" + dev.name + "\" was One-Touch Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
 									elif activityItem.action == "doorclosed" or activityItem.action == "dooropen":
 
 										# Update the state of the DoorSense Lock if it's set up.
@@ -1065,19 +1065,19 @@ class Plugin(indigo.PluginBase):
 												break
 
 										if activityItem.action == "doorclosed":
-											indigo.server.log(u"received \"" + dev.name + "\" door was closed at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) ")
+											indigo.server.log("received \"" + dev.name + "\" door was closed at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) ")
 										else:		
-											indigo.server.log(u"received \"" + dev.name + "\" door was opened at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) ")
+											indigo.server.log("received \"" + dev.name + "\" door was opened at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) ")
 									
 									elif activityItem.callingUser == "by Auto Relock":
-										indigo.server.log(u"received \"" + dev.name + "\" was Auto-Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")									
+										indigo.server.log("received \"" + dev.name + "\" was Auto-Locked at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")									
 									elif activityItem.action == "addedpin" or activityItem.action == "removedpined":
-										indigo.server.log(u"received \"" + dev.name + "\" PIN Code was added or removed for a user (ignored).")
+										indigo.server.log("received \"" + dev.name + "\" PIN Code was added or removed for a user (ignored).")
 										break
 									elif activityItem.via == "via ZWave":
-										indigo.server.log(u"received \"" + dev.name + "\" was " + activityItem.action + "ed at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
+										indigo.server.log("received \"" + dev.name + "\" was " + activityItem.action + "ed at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
 									else:
-										indigo.server.log(u"received \"" + dev.name + "\" was " + activityItem.action + "ed " + activityItem.callingUser + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
+										indigo.server.log("received \"" + dev.name + "\" was " + activityItem.action + "ed " + activityItem.callingUser + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago) " + activityItem.via + extraText)
 
 									if dev.onState != activityItem.onState():									
 										dev.updateStateOnServer('onOffState', value=activityItem.onState())
@@ -1139,9 +1139,9 @@ class Plugin(indigo.PluginBase):
 								self.last_doorbell_motion = datetime.datetime.now()
 
 								if activityItem.action == "doorbell_call_missed":
-									indigo.server.log(u"received missed doorbell call at " + activityItem.deviceName + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
+									indigo.server.log("received missed doorbell call at " + activityItem.deviceName + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
 								elif activityItem.action == "doorbell_motion_detected":
-									indigo.server.log(u"received motion detected event at " + activityItem.deviceName + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
+									indigo.server.log("received motion detected event at " + activityItem.deviceName + " at " + activityItem.dateTime.strftime("%Y-%m-%d %H:%M:%S") + " (" + str(int(delta_time.total_seconds())) + " seconds ago)")
 
 								# PROCESS DOORBELL TRIGGERS
 								for trigger in indigo.triggers.iter("self.doorbellMotion"):
@@ -1193,9 +1193,9 @@ class Plugin(indigo.PluginBase):
 				if dev.onState != serverState:
 
 					if serverState:
-							indigo.server.log(u"received \"" + dev.name + "\" was locked")
+							indigo.server.log("received \"" + dev.name + "\" was locked")
 					else:
-							indigo.server.log(u"received \"" + dev.name + "\" was unlocked")
+							indigo.server.log("received \"" + dev.name + "\" was unlocked")
 
 					dev.updateStateOnServer('onOffState', value=serverState)
 					
@@ -1226,7 +1226,7 @@ class Plugin(indigo.PluginBase):
 			self.debug = valuesDict["chkDebug"]
 			self.debug_L2= valuesDict["chkDebug_L2"]
 
-			self.createVariableFolder(valuesDict[u"indigoVariablesFolderName"])
+			self.createVariableFolder(valuesDict["indigoVariablesFolderName"])
 
 
 	def createVariableFolder(self, variableFolderName):
@@ -1239,7 +1239,7 @@ class Plugin(indigo.PluginBase):
 
 		if self.indigoVariablesFolderName not in indigo.variables.folders:
 			self.indigoVariablesFolderID = indigo.variables.folder.create(self.indigoVariablesFolderName).id
-			indigo.server.log(self.indigoVariablesFolderName+ u" folder created")
+			indigo.server.log(self.indigoVariablesFolderName+ " folder created")
 		else:
 			self.indigoVariablesFolderID=indigo.variables.folders[self.indigoVariablesFolderName].id
 
